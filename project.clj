@@ -5,6 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
   :dependencies [[org.clojure/clojure "1.8.0"]
+                 [com.taoensso/timbre "4.7.4"]
                  [ring-server "0.4.0"]
                  [reagent "0.6.0"]
                  [reagent-forms "0.5.25"]
@@ -14,11 +15,11 @@
                  [compojure "1.5.1"]
                  [hiccup "1.0.5"]
                  [yogthos/config "0.8"]
-                 [org.clojure/clojurescript "1.9.229"
-                  :scope "provided"]
+                 [org.clojure/clojurescript "1.9.229" :scope "provided"]
                  [secretary "1.2.3"]
                  [venantius/accountant "0.1.7"
-                  :exclusions [org.clojure/tools.reader]]]
+                  :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/test.check "0.9.0" :scope "test"]]
 
   :plugins [[lein-environ "1.0.2"]
             [lein-cljsbuild "1.1.1"]
@@ -40,6 +41,7 @@
    [:cljsbuild :builds :app :compiler :output-to]]
 
   :source-paths ["src/clj" "src/cljc"]
+  :test-paths ["test/clj"]
   :resource-paths ["resources" "target/cljsbuild"]
 
   :minify-assets
