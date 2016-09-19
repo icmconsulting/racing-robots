@@ -93,8 +93,8 @@
   [{:keys [board] :as state} move-amount {:keys [robot] :as player}]
   (if (movable-robot-states (:state robot))
     (let [{:keys [position direction]} robot
-          new-position #spy/p (translate-position position direction move-amount)
-          owner-player-at-new-position #spy/p (owner-player-at-position state new-position)
+          new-position (translate-position position direction move-amount)
+          owner-player-at-new-position (owner-player-at-position state new-position)
           new-board-square (square-at board new-position)
           new-attrs (cond
                       (nil? new-board-square) {:state :destroyed :position nil}

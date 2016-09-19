@@ -77,7 +77,7 @@
                                        {player-id (vec (repeat 5 {:type :move :value 1 :priority 100}))})
                    1))))))))
 
-(deftest robot-interactions
+(deftest robot-movement-interactions
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] blank-board)
         player1-id (get-in base-game [:state :players 0 :id])
         player2-id (get-in base-game [:state :players 1 :id])]
@@ -89,6 +89,16 @@
                           (complete-registers {player1-id [{:type :move :value 1 :priority 330}]
                                                player2-id [{:type :move :value 1 :priority 290}]}))]
         (is (= [0 1] (player-position base-game 1)))
-        (is (= [1 2] (player-position base-game 2)))))))
+        (is (= [1 2] (player-position base-game 2)))))
+
+    (testing "Pushing robot over edge destroys it"
+      (let [base-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :south)
+                          (assoc-in [:state :players 0 :robot :position] [0 0])
+                          (assoc-in [:state :players 1 :robot :position] [0 1])
+                          (assoc-in [:state :players 1 :robot :direction] :north)
+                          (complete-registers {player1-id [{:type :move :value 1 :priority 290}]
+                                               player2-id [{:type :move :value 1 :priority 330}]}))]
+        (is (= :destroyed (player-state base-game 1)))
+        (is (= :ready (player-state base-game 2)))))))
 
 
