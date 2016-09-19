@@ -15,6 +15,13 @@
   (clean-up [game player-commands])
   (is-game-over? [game]))
 
+(defprotocol RRBoard
+  (board-size [board])
+  (square-at [board point])
+  (move-robot [board starting-point all-robots instruction]
+    "If the robot moves given the instruction, return the new position")
+  (docking-bay-position [board num]))
+
 (defn robot-destroyed?
   [{:keys [robot] :as player}]
   (= 10 (:damage robot)))
@@ -62,23 +69,46 @@
    :west [-1 0]
    :south [0 1]})
 
-(defn position-with-delta
-  [{:keys [board players]} move-amount {:keys [position direction] :as robot}]
-  (let [[x y] position
-        [delta-x delta-y] (move-delta direction)]
-    (assoc robot
-      :position [(+ x (* delta-x move-amount))
-                 (+ y (* delta-y move-amount))])))
+(defn owner-player-at-position
+  [state position]
+  (->> (filter #(= position (get-in % [:robot :position])) (:players state))
+       (first)))
 
-(defn can-move-to?
-  [state player new-position]
-  true) ;;TODO: check for walls or other robots
+(defn translate-position
+  [start-position direction move-amount]
+  (let [[x y] start-position
+        [delta-x delta-y] (move-delta direction)]
+    [(+ x (* delta-x move-amount))
+     (+ y (* delta-y move-amount))]))
+
+(def movable-robot-states #{:ready :powered-down})
+
+(defn update-robot-for-player
+  [state player-id new-robot-attrs]
+  (transform [:players ALL (if-path [:id (partial = player-id)] [:robot])]
+             #(merge % new-robot-attrs)
+             state))
+
+(defn move-player-robot-by-amount
+  [{:keys [board] :as state} move-amount {:keys [robot] :as player}]
+  (if (movable-robot-states (:state robot))
+    (let [{:keys [position direction]} robot
+          new-position #spy/p (translate-position position direction move-amount)
+          owner-player-at-new-position #spy/p (owner-player-at-position state new-position)
+          new-board-square (square-at board new-position)
+          new-attrs (cond
+                      (nil? new-board-square) {:state :destroyed :position nil}
+                      :else {:position new-position})
+          new-state (update-robot-for-player state (:id player) new-attrs)]
+      (if owner-player-at-new-position
+        (move-player-robot-by-amount new-state move-amount
+                                     (assoc-in owner-player-at-new-position [:robot :direction] direction))
+        new-state))
+    state))
 
 (defmethod execute-player-register :move
   [state [player-id {:keys [value]}]]
-  (transform [:players ALL (if-path [:id (partial = player-id)] [:robot])]
-             (partial position-with-delta state value)
-             state))
+  (move-player-robot-by-amount state value (player-by-id state player-id)))
 
 (def rotate-delta
   {:left {:north :west
@@ -100,22 +130,13 @@
                      (get rotate-delta value)
                      state))
 
-;(def test-game (new-game [{:name "player1"}] blank-board))
-;(:players (reduce execute-player-register
-;                  (:state test-game)
-;                  [["5819fd66-4911-486f-8ed2-a63af64313f3" {:type :rotate :value :right}]
-;                   ["5819fd66-4911-486f-8ed2-a63af64313f3" {:type :move :value 2}]]))
-
 (defn priority
   [state [player-id register]]
-  (+ (:priority register) (- 1 (/ (:docking-bay (player-by-id state player-id)) 10))))
+  (+ (:priority register) (- 1 (/ (get-in (player-by-id state player-id) [:robot :docking-bay]) 10))))
 
 (defn execute-register-number
-  [player-id->registers state register-num]
-  (let [player-id->register (map (fn [[player-id rs]]
-                                   [player-id (nth rs register-num)])
-                                 player-id->registers)
-        prioritised-players (sort-by (partial priority state) player-id->register)]
+  [state [num player-id->register]]
+  (let [prioritised-players (sort-by (partial priority state) > player-id->register)]
     (reduce execute-player-register state prioritised-players))
 
   ;; 1. move robots
@@ -125,13 +146,20 @@
   ;; TODO!!
   )
 
-;;TODO -
+(defn registers-by-execution-order
+  [player-ids->registers]
+  (reduce-kv (fn [registers player-id rs]
+               (let [r-by-idx (map-indexed #(array-map %1 [[player-id %2]]) rs)]
+                 (apply merge-with (comp vec concat) registers r-by-idx)))
+             {} player-ids->registers))
+
 (defn execute-each-register
   [game player-ids->registers]
   {:pre [(map? player-ids->registers) ((every-pred :players :board :id :turns :program-deck) (:state game))]}
   ;;TODO: assert each player has a set of registers or is :powered-down
+
   (update-in game [:state]
-             #(reduce (partial execute-register-number player-ids->registers) % (range 0 5))))
+             #(reduce execute-register-number % (registers-by-execution-order player-ids->registers))))
 
 (defrecord RRGameState [state]
   RRGame
@@ -161,17 +189,15 @@
 
 
 ;; RR Game boards
-(defprotocol RRBoard
-  (board-size [board])
-  (square-at [board point])
-  (move-robot [board starting-point all-robots instruction]
-    "If the robot moves given the instruction, return the new position")
-  (docking-bay-position [board num]))
+
 
 (defrecord RRSeqBoard [board-squares]
   RRBoard
   (board-size [board] [(count (first board-squares)) (count board-squares)])
-  (square-at [board [x y]] (nth (nth board-squares y) x))
+  (square-at [board [x y]]
+    (let [[max-x max-y] (board-size board)]
+      (when (and  ((set (range 0 max-x)) x) ((set (range 0 max-y)) y))
+        (nth (nth board-squares y) x))))
   (move-robot [board [x y] all-robots {:keys [type value]}]
     ;; TODO
     )

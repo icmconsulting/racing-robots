@@ -20,6 +20,10 @@
                          board-generator))))
 
 ;; test robot movement registers
+(defn player-state
+  [game player-num]
+  (get-in game [:state :players (dec player-num) :robot :state]))
+
 (defn player-position
   [game player-num]
   (get-in game [:state :players (dec player-num) :robot :position]))
@@ -58,10 +62,33 @@
                                      {player-id (vec (repeat 5 {:type :move :value 1 :priority 100}))})
                  1)))))
 
+    (testing "Moving robot off board destroys it"
+      (let [base-games [(assoc-in base-game [:state :players 0 :robot :direction] :south)
+                        (-> (assoc-in base-game [:state :players 0 :robot :direction] :east)
+                            (assoc-in [:state :players 0 :robot :position] [11 0]))
+                        (-> (assoc-in base-game [:state :players 0 :robot :direction] :west)
+                            (assoc-in [:state :players 0 :robot :position] [4 0]))
+                        (-> (assoc-in base-game [:state :players 0 :robot :direction] :north)
+                            (assoc-in [:state :players 0 :robot :position] [4 4]))]]
+        (doseq [game base-games]
+          (is (= :destroyed
+                 (player-state
+                   (complete-registers game
+                                       {player-id (vec (repeat 5 {:type :move :value 1 :priority 100}))})
+                   1))))))))
 
-
-    )
-
-  )
+(deftest robot-interactions
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] blank-board)
+        player1-id (get-in base-game [:state :players 0 :id])
+        player2-id (get-in base-game [:state :players 1 :id])]
+    (testing "Example from the game instructions"
+      (let [base-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :south)
+                          (assoc-in [:state :players 0 :robot :position] [0 0])
+                          (assoc-in [:state :players 1 :robot :position] [0 1])
+                          (assoc-in [:state :players 1 :robot :direction] :east)
+                          (complete-registers {player1-id [{:type :move :value 1 :priority 330}]
+                                               player2-id [{:type :move :value 1 :priority 290}]}))]
+        (is (= [0 1] (player-position base-game 1)))
+        (is (= [1 2] (player-position base-game 2)))))))
 
 
