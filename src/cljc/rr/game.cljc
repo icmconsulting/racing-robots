@@ -89,26 +89,54 @@
              #(merge % new-robot-attrs)
              state))
 
-(defn move-player-robot-by-amount
-  [{:keys [board] :as state} move-amount {:keys [robot] :as player}]
+(defn can-move-in-direction?
+  [board from direction]
+  {:pre [(vector? from) (keyword? direction)]}
+  (nil? ((:walls (square-at board from)) direction)))
+
+(defn can-move-to-square?
+  [board to direction]
+  {:pre [(vector? to) (keyword? direction)]}
+  (if-let [new-square (square-at board to)]
+    (nil? ((:walls new-square)
+            ({:west  :east
+              :north :south
+              :east  :west
+              :south :north} direction)))
+    true)) ;; can always move off the board
+
+(defn move-player-robot-by-single-square
+  [{:keys [board] :as state} {:keys [robot] :as player}]
   (if (movable-robot-states (:state robot))
     (let [{:keys [position direction]} robot
-          new-position (translate-position position direction move-amount)
-          owner-player-at-new-position (owner-player-at-position state new-position)
+          potential-new-position (translate-position position direction 1)
+          owner-player-at-new-position (owner-player-at-position state potential-new-position)
+          new-position (if (and (can-move-in-direction? board position direction)
+                                (can-move-to-square? board potential-new-position direction)
+                                (or (nil? owner-player-at-new-position)
+                                    (and (can-move-in-direction? board potential-new-position direction)
+                                         (can-move-to-square? board (translate-position potential-new-position direction 1) direction))))
+                         potential-new-position
+                         position)
           new-board-square (square-at board new-position)
           new-attrs (cond
                       (nil? new-board-square) {:state :destroyed :position nil}
                       :else {:position new-position})
           new-state (update-robot-for-player state (:id player) new-attrs)]
-      (if owner-player-at-new-position
-        (move-player-robot-by-amount new-state move-amount
-                                     (assoc-in owner-player-at-new-position [:robot :direction] direction))
+      (if (and owner-player-at-new-position
+               (not= (:id owner-player-at-new-position)
+                     (:id player)))
+        (move-player-robot-by-single-square new-state
+                                            (assoc-in owner-player-at-new-position
+                                               [:robot :direction] direction))
         new-state))
     state))
 
 (defmethod execute-player-register :move
   [state [player-id {:keys [value]}]]
-  (move-player-robot-by-amount state value (player-by-id state player-id)))
+  (reduce
+    (fn [state _] (move-player-robot-by-single-square state (player-by-id state player-id)))
+    state (range 0 value)))
 
 (def rotate-delta
   {:left {:north :west
@@ -210,9 +238,14 @@
                    (range max-y))))))
 
 (def blank-square {:walls #{} :repair? false :flag nil :belt nil :pit nil :laser nil})
+
 (defn docking-bay-square
   [num]
   (assoc blank-square :docking-bay num))
+
+(defn square-with-walls
+  [& walls]
+  (assoc blank-square :walls (set walls)))
 
 ;; Simple 12x16 board with no obstacles, walls or repair pods
 (def blank-board
@@ -222,6 +255,7 @@
       [(concat (repeat 4 blank-square)
                (map docking-bay-square (range 1 5))
                (repeat 4 blank-square))])))
+
 
 (defn player-with-robot
   [board idx player]
@@ -252,4 +286,7 @@
        :turns        []})))
 
 ;; TODO:
+;; - Movement with walls
+
+
 ;; - Lock registers for players

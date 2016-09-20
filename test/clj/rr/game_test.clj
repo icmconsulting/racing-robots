@@ -28,6 +28,10 @@
   [game player-num]
   (get-in game [:state :players (dec player-num) :robot :position]))
 
+(defn player-damage
+  [game player-num]
+  (get-in game [:state :players (dec player-num) :robot :damage]))
+
 (deftest moving-robot
   (let [base-game (new-game [{:name "player 1"}] blank-board)
         player-id (get-in base-game [:state :players 0 :id])]
@@ -101,4 +105,67 @@
         (is (= :destroyed (player-state base-game 1)))
         (is (= :ready (player-state base-game 2)))))))
 
+(def board-with-walls
+  (->RRSeqBoard
+    (concat
+      (repeat 2 (repeat 4 blank-square))
+      [[(square-with-walls :east) (square-with-walls :south) blank-square blank-square]]
+      [(repeat 4 blank-square)]
+      [(map docking-bay-square (range 1 5))])))
 
+(deftest robot-movement-with-walls
+  (let [base-single-player-game (new-game [{:name "player 1"}] board-with-walls)
+        player1-id (get-in base-single-player-game [:state :players 0 :id])]
+    (testing "Player against a wall can't move in that direction"
+     (let [base-single-player-game (-> (assoc-in base-single-player-game [:state :players 0 :robot :direction] :east)
+                                       (assoc-in [:state :players 0 :robot :position] [0 2])
+                                       (complete-registers {player1-id [{:type :move :value 1 :priority 290}]}))]
+       (is (= [0 2] (player-position base-single-player-game 1)))))
+    (testing "Player against a wall can't move in that direction when moving more than 1 space"
+      (let [base-single-player-game (-> (assoc-in base-single-player-game [:state :players 0 :robot :direction] :south)
+                                        (assoc-in [:state :players 0 :robot :position] [1 1])
+                                        (complete-registers {player1-id [{:type :move :value 3 :priority 290}]}))]
+        (is (= [1 2] (player-position base-single-player-game 1)))))
+    (testing "Player in adjacent square to one with a wall can't move through that wall"
+      (let [base-single-player-game (-> (assoc-in base-single-player-game [:state :players 0 :robot :direction] :west)
+                                        (assoc-in [:state :players 0 :robot :position] [1 2])
+                                        (complete-registers {player1-id [{:type :move :value 3 :priority 290}]}))]
+        (is (= [1 2] (player-position base-single-player-game 1)))))
+    (testing "Robots don't take damage when hitting a wall"
+      (let [base-single-player-game (-> (assoc-in base-single-player-game [:state :players 0 :robot :direction] :west)
+                                        (assoc-in [:state :players 0 :robot :position] [1 2])
+                                        (complete-registers {player1-id [{:type :move :value 3 :priority 290}]}))]
+        (is (= 0 (player-damage base-single-player-game 1)))))))
+
+(deftest robot-interaction-with-walls
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"}] board-with-walls)
+        player1-id (get-in base-game [:state :players 0 :id])]
+    (testing "Robot can't push another robot thats already against a wall"
+      (let [base-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :south)
+                                        (assoc-in [:state :players 0 :robot :position] [1 1])
+                                        (assoc-in [:state :players 1 :robot :direction] :east)
+                                        (assoc-in [:state :players 1 :robot :position] [1 2])
+                                        (complete-registers {player1-id [{:type :move :value 1 :priority 290}]}))]
+        (is (= [1 1] (player-position base-game 1)))
+        (is (= [1 2] (player-position base-game 2)))))
+    (testing "Robot can't push another robot further than a wall"
+      (let [base-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :south)
+                          (assoc-in [:state :players 0 :robot :position] [1 0])
+                          (assoc-in [:state :players 1 :robot :direction] :east)
+                          (assoc-in [:state :players 1 :robot :position] [1 1])
+                          (complete-registers {player1-id [{:type :move :value 3 :priority 290}]}))]
+        (is (= [1 1] (player-position base-game 1)))
+        (is (= [1 2] (player-position base-game 2)))))
+
+
+
+    #_(testing "Player against a wall can't move in that direction when moving more than 1 space"
+      (let [base-single-player-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :south)
+                                        (assoc-in [:state :players 0 :robot :position] [1 1])
+                                        (complete-registers {player1-id [{:type :move :value 3 :priority 290}]}))]
+        (is (= [1 2] (player-position base-single-player-game 1)))))
+    #_(testing "Player in adjacent square to one with a wall can't move through that wall"
+      (let [base-single-player-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :west)
+                                        (assoc-in [:state :players 0 :robot :position] [1 2])
+                                        (complete-registers {player1-id [{:type :move :value 3 :priority 290}]}))]
+        (is (= [1 2] (player-position base-single-player-game 1)))))))
