@@ -42,6 +42,7 @@
 
 (defn start-next-turn*
   [{:keys [players] :as state}]
+  ;;TODO: (whole deck - locked registers) is reshuffled and dealth at the beginning of each turn!
   (let [players (mapv #(assoc %1 :cards-due %2) players (map num-cards-for-this-turn players))
         [dealt-cards remaining-deck] (split-at (reduce + (map :cards-due players))
                                                (:program-deck state))]
@@ -105,24 +106,29 @@
               :south :north} direction)))
     true)) ;; can always move off the board
 
+(defn is-move-possible?
+  [{:keys [board] :as state} {:keys [robot]} move-amount]
+  (let [{:keys [position direction]} robot
+        potential-new-position (translate-position position direction move-amount)
+        owner-player-at-new-position (owner-player-at-position state potential-new-position)]
+    (and (can-move-in-direction? board position direction)
+         (can-move-to-square? board potential-new-position direction)
+         (or (nil? owner-player-at-new-position)
+             (is-move-possible? state (assoc-in owner-player-at-new-position [:robot :direction] direction) move-amount)))))
+
 (defn move-player-robot-by-single-square
   [{:keys [board] :as state} {:keys [robot] :as player}]
   (if (movable-robot-states (:state robot))
     (let [{:keys [position direction]} robot
-          potential-new-position (translate-position position direction 1)
-          owner-player-at-new-position (owner-player-at-position state potential-new-position)
-          new-position (if (and (can-move-in-direction? board position direction)
-                                (can-move-to-square? board potential-new-position direction)
-                                (or (nil? owner-player-at-new-position)
-                                    (and (can-move-in-direction? board potential-new-position direction)
-                                         (can-move-to-square? board (translate-position potential-new-position direction 1) direction))))
-                         potential-new-position
+          new-position (if (is-move-possible? state player 1)
+                         (translate-position position direction 1)
                          position)
           new-board-square (square-at board new-position)
           new-attrs (cond
                       (nil? new-board-square) {:state :destroyed :position nil}
                       :else {:position new-position})
-          new-state (update-robot-for-player state (:id player) new-attrs)]
+          new-state (update-robot-for-player state (:id player) new-attrs)
+          owner-player-at-new-position (owner-player-at-position state new-position)]
       (if (and owner-player-at-new-position
                (not= (:id owner-player-at-new-position)
                      (:id player)))
@@ -286,7 +292,4 @@
        :turns        []})))
 
 ;; TODO:
-;; - Movement with walls
-
-
 ;; - Lock registers for players

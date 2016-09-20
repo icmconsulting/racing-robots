@@ -156,16 +156,26 @@
                           (complete-registers {player1-id [{:type :move :value 3 :priority 290}]}))]
         (is (= [1 1] (player-position base-game 1)))
         (is (= [1 2] (player-position base-game 2)))))
+    (testing "Robot can't push another 2 robots further than a wall"
+      (let [base-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :south)
+                          (assoc-in [:state :players 0 :robot :position] [1 0])
+                          (assoc-in [:state :players 1 :robot :direction] :east)
+                          (assoc-in [:state :players 1 :robot :position] [1 1])
+                          (assoc-in [:state :players 2 :robot :direction] :west)
+                          (assoc-in [:state :players 2 :robot :position] [1 2])
+                          (complete-registers {player1-id [{:type :move :value 3 :priority 290}]}))]
+        (is (= [1 0] (player-position base-game 1)))
+        (is (= [1 1] (player-position base-game 2)))
+        (is (= [1 2] (player-position base-game 3)))))))
 
+(deftest wall-laser-interaction
+  ;;TODO
+  )
 
+(deftest robot-laser-interaction
+  ;;TODO
+  )
 
-    #_(testing "Player against a wall can't move in that direction when moving more than 1 space"
-      (let [base-single-player-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :south)
-                                        (assoc-in [:state :players 0 :robot :position] [1 1])
-                                        (complete-registers {player1-id [{:type :move :value 3 :priority 290}]}))]
-        (is (= [1 2] (player-position base-single-player-game 1)))))
-    #_(testing "Player in adjacent square to one with a wall can't move through that wall"
-      (let [base-single-player-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :west)
-                                        (assoc-in [:state :players 0 :robot :position] [1 2])
-                                        (complete-registers {player1-id [{:type :move :value 3 :priority 290}]}))]
-        (is (= [1 2] (player-position base-single-player-game 1)))))))
+(deftest conveyer-belt-interaction
+  ;;TODO
+  )
