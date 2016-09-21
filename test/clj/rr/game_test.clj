@@ -109,7 +109,7 @@
   (->RRSeqBoard
     (concat
       (repeat 2 (repeat 4 blank-square))
-      [[(square-with-walls :east) (square-with-walls :south) blank-square blank-square]]
+      [[(with-walls blank-square :east) (with-walls blank-square :south) blank-square blank-square]]
       [(repeat 4 blank-square)]
       [(map docking-bay-square (range 1 5))])))
 
@@ -168,14 +168,32 @@
         (is (= [1 1] (player-position base-game 2)))
         (is (= [1 2] (player-position base-game 3)))))))
 
+(def board-with-belts
+  (->RRSeqBoard
+    (concat
+      [[blank-square (with-belt blank-square :south true) (repeat 2 blank-square)]]
+      [[blank-square (with-belt blank-square :south true) (repeat 2 blank-square)]]
+      [(repeat 4 (with-belt blank-square :east))]
+      [(repeat 4 blank-square)]
+      [(map docking-bay-square (range 1 5))])))
+
+(deftest conveyer-belt-interaction
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"}] board-with-belts)
+        player1-id (get-in base-game [:state :players 0 :id])]
+    (testing "Robot on a non express belt after a turn is moved by 1 square in the direction of the belt"
+      (let [base-single-player-game (complete-registers base-game {player1-id [{:type :move :value 2 :priority 290}]})]
+        (is (= [1 2] (player-position base-single-player-game 1)))))
+
+    #_(testing "Robot on an express belt after a turn is moved by 2 squares in the direction of the belt"
+      (let [base-single-player-game (complete-registers base-game {player1-id [{:type :move :value 2 :priority 290}]})]
+        (is (= [1 2] (player-position base-single-player-game 1)))))
+
+    ))
+
 (deftest wall-laser-interaction
   ;;TODO
   )
 
 (deftest robot-laser-interaction
-  ;;TODO
-  )
-
-(deftest conveyer-belt-interaction
   ;;TODO
   )

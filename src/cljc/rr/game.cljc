@@ -164,14 +164,38 @@
                      (get rotate-delta value)
                      state))
 
+(defn on-belt?
+  [board position]
+  (when position (:belt (square-at board position))))
+
+(defn apply-belt-movement
+  [board {:keys [position] :as robot}]
+  (if-let [[direction express?] (on-belt? board position)]
+    (assoc robot :position (translate-position position direction 1))
+    robot))
+
+(defn move-players-along-conveyer-belts
+  [{:keys [players board] :as state}]
+  (transform [:players ALL :robot] (partial apply-belt-movement board) state)
+  #_(let [robots-with-belt-movements (transform [:players ALL :robot] (partial apply-belt-movement board) state)
+
+        ]
+
+    )
+
+  )
+
+
 (defn priority
   [state [player-id register]]
   (+ (:priority register) (- 1 (/ (get-in (player-by-id state player-id) [:robot :docking-bay]) 10))))
 
 (defn execute-register-number
-  [state [num player-id->register]]
+  [state [_ player-id->register]]
   (let [prioritised-players (sort-by (partial priority state) > player-id->register)]
-    (reduce execute-player-register state prioritised-players))
+    (->
+      (reduce execute-player-register state prioritised-players)
+      (move-players-along-conveyer-belts)))
 
   ;; 1. move robots
   ;; 2. board elements move
@@ -249,9 +273,19 @@
   [num]
   (assoc blank-square :docking-bay num))
 
-(defn square-with-walls
-  [& walls]
-  (assoc blank-square :walls (set walls)))
+(defn with-walls
+  [square & walls]
+  (assoc square :walls (set walls)))
+
+(defn with-laser
+  [square laser-wall]
+  {:pre [((:walls square) laser-wall)]}
+  (assoc square :laser laser-wall))
+
+(defn with-belt
+  [square belt-direction & express?]
+  {:pre [(#{:south :north :east :west :rotate-left :rotate-right} belt-direction)]}
+  (assoc square :belt [belt-direction express?]))
 
 ;; Simple 12x16 board with no obstacles, walls or repair pods
 (def blank-board
