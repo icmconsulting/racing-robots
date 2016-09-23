@@ -169,22 +169,21 @@
   (when position (:belt (square-at board position))))
 
 (defn apply-belt-movement
-  [board {:keys [position] :as robot}]
-  (if-let [[direction express?] (on-belt? board position)]
-    (assoc robot :position (translate-position position direction 1))
+  [board express-only? {:keys [position] :as robot}]
+  (if-let [[direction express] (on-belt? board position)]
+    (assoc robot :position (if (or (not express-only?) (and express-only? express))
+                             (translate-position position direction 1)
+                             position))
     robot))
 
 (defn move-players-along-conveyer-belts
-  [{:keys [players board] :as state}]
-  (transform [:players ALL :robot] (partial apply-belt-movement board) state)
-  #_(let [robots-with-belt-movements (transform [:players ALL :robot] (partial apply-belt-movement board) state)
-
-        ]
-
-    )
-
-  )
-
+  [{:keys [players board] :as state} express-only?]
+  (let [new-player-pos (map (juxt :id (comp (partial apply-belt-movement board express-only?) :robot)) players)]
+    (reduce (fn [state [player-id {:keys [position] :as robot}]]
+              (if (< 1 (count (filter #(= position (:position (second %))) new-player-pos)))
+                state
+                (setval [:players ALL (if-path [:id (partial = player-id)] [:robot])] robot state)))
+            state new-player-pos)))
 
 (defn priority
   [state [player-id register]]
@@ -195,7 +194,8 @@
   (let [prioritised-players (sort-by (partial priority state) > player-id->register)]
     (->
       (reduce execute-player-register state prioritised-players)
-      (move-players-along-conveyer-belts)))
+      (move-players-along-conveyer-belts true)
+      (move-players-along-conveyer-belts false)))
 
   ;; 1. move robots
   ;; 2. board elements move
@@ -327,3 +327,4 @@
 
 ;; TODO:
 ;; - Lock registers for players
+;; - Pits

@@ -174,21 +174,34 @@
       [[blank-square (with-belt blank-square :south true) (repeat 2 blank-square)]]
       [[blank-square (with-belt blank-square :south true) (repeat 2 blank-square)]]
       [(repeat 4 (with-belt blank-square :east))]
-      [(repeat 4 blank-square)]
+      [[(with-belt blank-square :east) (with-belt blank-square :south) (with-belt blank-square :west) blank-square]]
       [(map docking-bay-square (range 1 5))])))
 
 (deftest conveyer-belt-interaction
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"}] board-with-belts)
-        player1-id (get-in base-game [:state :players 0 :id])]
+        player1-id (get-in base-game [:state :players 0 :id])
+        player3-id (get-in base-game [:state :players 2 :id])]
+
     (testing "Robot on a non express belt after a turn is moved by 1 square in the direction of the belt"
       (let [base-single-player-game (complete-registers base-game {player1-id [{:type :move :value 2 :priority 290}]})]
         (is (= [1 2] (player-position base-single-player-game 1)))))
 
-    #_(testing "Robot on an express belt after a turn is moved by 2 squares in the direction of the belt"
-      (let [base-single-player-game (complete-registers base-game {player1-id [{:type :move :value 2 :priority 290}]})]
+    (testing "Robot on an express belt after a turn is moved by 2 squares in the direction of the belt"
+      (let [base-single-player-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :east)
+                                        (assoc-in [:state :players 0 :robot :position] [0 0])
+                                        (complete-registers {player1-id [{:type :move :value 1 :priority 290}]}))]
         (is (= [1 2] (player-position base-single-player-game 1)))))
 
-    ))
+    (testing "Robots being moved into a conflicting spot will not be moved by the belt"
+      (let [two-player-game (complete-registers base-game {player1-id [{:type :move :value 1 :priority 290}]
+                                                           player3-id [{:type :move :value 1 :priority 330}]})]
+        (is (= [0 3] (player-position two-player-game 1)))
+        (is (= [2 3] (player-position two-player-game 3)))))
+
+    (testing "Robot being moved off a belt onto a square with a conflicting spot will not be moved"
+      (let [two-player-game (complete-registers base-game {player1-id [{:type :move :value 1 :priority 290}
+                                                                       {:type :move :value 0 :priority 290}]})] ;;not realistic, but only way on this map
+        (is (= [1 3] (player-position two-player-game 1)))))))
 
 (deftest wall-laser-interaction
   ;;TODO
