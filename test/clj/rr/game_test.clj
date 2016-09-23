@@ -199,9 +199,18 @@
         (is (= [2 3] (player-position two-player-game 3)))))
 
     (testing "Robot being moved off a belt onto a square with a conflicting spot will not be moved"
-      (let [two-player-game (complete-registers base-game {player1-id [{:type :move :value 1 :priority 290}
+      (let [single-player-game (complete-registers base-game {player1-id [{:type :move :value 1 :priority 290}
                                                                        {:type :move :value 0 :priority 290}]})] ;;not realistic, but only way on this map
-        (is (= [1 3] (player-position two-player-game 1)))))))
+        (is (= [1 3] (player-position single-player-game 1)))))
+
+    (testing "Robots are moved around corner on corner belts"
+      (let [single-player-game (-> base-game
+                                   (assoc-in [:state :players 0 :robot :direction] :south)
+                                   (assoc-in [:state :players 0 :robot :position] [2 2])
+                                   (assoc-in [:state :players 1 :robot :position] [0 0])
+                                   (complete-registers {player1-id [{:type :move :value 2 :priority 290}
+                                                                    {:type :move :value 0 :priority 290}]}))] ;;not realistic, but only way on this map
+        (is (= [2 4] (player-position single-player-game 1)))))))
 
 (deftest wall-laser-interaction
   ;;TODO
