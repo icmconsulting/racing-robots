@@ -1,5 +1,6 @@
 (ns rr.game
-  (:require [com.rpl.specter :refer :all])
+  (:require [com.rpl.specter :refer :all]
+            [clojure.spec :as s])
   #?(:clj
      (:import [java.util UUID])))
 
@@ -93,7 +94,7 @@
 (defn can-move-in-direction?
   [board from direction]
   {:pre [(vector? from) (keyword? direction)]}
-  (nil? ((:walls (square-at board from)) direction)))
+  (nil? ((:walls (square-at board  from)) direction)))
 
 (defn can-move-to-square?
   [board to direction]
@@ -169,14 +170,24 @@
   (when position (:belt (square-at board position))))
 
 (defn apply-belt-movement
-  [board express-only? {:keys [position] :as robot}]
-  (if-let [[direction express] (on-belt? board position)]
-    (assoc robot :position (if (or (not express-only?) (and express-only? express))
-                             (translate-position position direction 1)
-                             position))
+  [board express-only? {:keys [position direction] :as robot}]
+  (if-let [[belt-direction express] (on-belt? board position)]
+    (let [position-after-belt (translate-position position belt-direction 1)
+          square-after-belt (square-at board position-after-belt)]
+      (merge robot
+             (cond
+
+               ;; move the robot
+               (or (not express-only?) (and express-only? express))
+               {:position  position-after-belt
+                :direction (if-let [[new-belt-direction] (:belt square-after-belt)]
+                             new-belt-direction
+                             direction)}
+               (nil? square-after-belt)
+               {:position nil :state :destroyed})))
     robot))
 
-(defn move-players-along-conveyer-belts
+(defn move-players-along-conveyer-belt
   [{:keys [players board] :as state} express-only?]
   (let [new-player-pos (map (juxt :id (comp (partial apply-belt-movement board express-only?) :robot)) players)]
     (reduce (fn [state [player-id {:keys [position] :as robot}]]
@@ -194,8 +205,8 @@
   (let [prioritised-players (sort-by (partial priority state) > player-id->register)]
     (->
       (reduce execute-player-register state prioritised-players)
-      (move-players-along-conveyer-belts true)
-      (move-players-along-conveyer-belts false)))
+      (move-players-along-conveyer-belt true)
+      (move-players-along-conveyer-belt false)))
 
   ;; 1. move robots
   ;; 2. board elements move
@@ -248,6 +259,9 @@
 
 ;; RR Game boards
 
+(s/def ::board-squares #(= 1 (count (distinct (map count %)))))
+
+(s/def ::seq-board (s/keys :req-un [::board-squares]))
 
 (defrecord RRSeqBoard [board-squares]
   RRBoard
@@ -267,7 +281,11 @@
                        [x y]))
                    (range max-y))))))
 
-(def blank-square {:walls #{} :repair? false :flag nil :belt nil :pit nil :laser nil})
+(s/fdef RRSeqBoard
+        :args (s/cat ::board-squares ::board-squares)
+        :ret ::seq-board)
+
+(def blank-square {:walls #{} :repair? false :flag nil :belt nil :rotator nil :pit nil :laser nil})
 
 (defn docking-bay-square
   [num]
@@ -283,9 +301,14 @@
   (assoc square :laser laser-wall))
 
 (defn with-belt
-  [square belt-direction & express?]
-  {:pre [(#{:south :north :east :west :rotate-left :rotate-right} belt-direction)]}
+  [square belt-direction & [express?]]
+  {:pre [(#{:south :north :east :west} belt-direction)]}
   (assoc square :belt [belt-direction express?]))
+
+(defn with-rotator
+  [square direction]
+  {:pre [(#{:clockwise :anti-clockwise} direction)]}
+  (assoc square :rotator direction))
 
 ;; Simple 12x16 board with no obstacles, walls or repair pods
 (def blank-board

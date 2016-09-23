@@ -28,6 +28,10 @@
   [game player-num]
   (get-in game [:state :players (dec player-num) :robot :position]))
 
+(defn player-direction
+  [game player-num]
+  (get-in game [:state :players (dec player-num) :robot :direction]))
+
 (defn player-damage
   [game player-num]
   (get-in game [:state :players (dec player-num) :robot :damage]))
@@ -171,8 +175,8 @@
 (def board-with-belts
   (->RRSeqBoard
     (concat
-      [[blank-square (with-belt blank-square :south true) (repeat 2 blank-square)]]
-      [[blank-square (with-belt blank-square :south true) (repeat 2 blank-square)]]
+      [(concat [blank-square (with-belt blank-square :south true)] (repeat 2 blank-square))]
+      [[blank-square (with-belt blank-square :south true) (with-belt blank-square :west true) blank-square]]
       [(repeat 4 (with-belt blank-square :east))]
       [[(with-belt blank-square :east) (with-belt blank-square :south) (with-belt blank-square :west) blank-square]]
       [(map docking-bay-square (range 1 5))])))
@@ -210,7 +214,29 @@
                                    (assoc-in [:state :players 1 :robot :position] [0 0])
                                    (complete-registers {player1-id [{:type :move :value 2 :priority 290}
                                                                     {:type :move :value 0 :priority 290}]}))] ;;not realistic, but only way on this map
-        (is (= [2 4] (player-position single-player-game 1)))))))
+        (is (= [2 4] (player-position single-player-game 1)))
+        (is (= :south (player-direction single-player-game 1)))))
+
+    (testing "Robots are moved around corner on corner belts, and rotated if required"
+      (let [single-player-game (-> base-game
+                                   (assoc-in [:state :players 0 :robot :direction] :west)
+                                   (assoc-in [:state :players 0 :robot :position] [3 1])
+                                   (complete-registers {player1-id [{:type :move :value 1 :priority 290}]}))]
+        (is (= [1 2] (player-position single-player-game 1)))
+        (is (= :east (player-direction single-player-game 1)))))
+
+    (testing "Robots are destroyed if a belt moves them off the board"
+      (let [single-player-game (-> base-game
+                                   (assoc-in [:state :players 0 :robot :position] [3 4])
+                                   (complete-registers {player1-id [{:type :move :value 2 :priority 290}]}))]
+        (is (= :destroyed (player-state single-player-game 1)))))))
+
+(deftest rotator-interaction
+  (testing "Robot landing on a rotator will rotate in the direction of the rotator"
+    ;;TODO
+
+
+    ))
 
 (deftest wall-laser-interaction
   ;;TODO
