@@ -271,11 +271,59 @@
                                                                        {:type :move :value 1 :priority 290}]}))]
         (is (= :south (player-direction base-single-player-game 1)))))))
 
-
+(def board-with-lasers
+  (->RRSeqBoard
+    (concat
+      [(concat [(-> blank-square (with-walls :west :north) (with-lasers :north 1))] (repeat 3 blank-square))]
+      [(repeat 4 blank-square)]
+      [[(with-walls blank-square :south) (-> blank-square (with-walls :west) (with-lasers :west 3))
+        (with-belt blank-square :north) blank-square]]
+      [(repeat 4 blank-square)]
+      [(map docking-bay-square (range 1 5))])))
 
 (deftest wall-laser-interaction
-  ;;TODO
-  )
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] board-with-lasers)
+        player1-id (get-in base-game [:state :players 0 :id])
+        player2-id (get-in base-game [:state :players 1 :id])]
+    (testing "Robot landing on a single laser square gains 1 damage"
+      (let [base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :direction] :west)
+                          (assoc-in [:state :players 0 :robot :position] [2 0])
+                          (complete-registers {player1-id [{:type :move :value 2 :priority 100}]}))]
+        (is (= 1 (player-damage base-game 1)))))
+
+    (testing "Robot hiding behind a wall does not gain damage from a laser"
+      (let [base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :direction] :north)
+                          (complete-registers {player1-id [{:type :move :value 2 :priority 100}]}))]
+        (is (zero? (player-damage base-game 1)))))
+
+    (testing "Lasers don't pass through robots - only first one takes the damage"
+      (let [base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :direction] :west)
+                          (assoc-in [:state :players 0 :robot :position] [2 0])
+                          (assoc-in [:state :players 1 :robot :direction] :west)
+                          (assoc-in [:state :players 1 :robot :position] [2 1])
+                          (complete-registers {player1-id [{:type :move :value 2 :priority 100}]
+                                               player2-id [{:type :move :value 2 :priority 100}]}))]
+        (is (= 1 (player-damage base-game 1)))
+        (is (zero? (player-damage base-game 2)))))
+
+    (testing "Robot landing on a square with 3 lasers square gains 3 damage"
+      (let [base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :direction] :north)
+                          (assoc-in [:state :players 0 :robot :position] [3 4])
+                          (complete-registers {player1-id [{:type :move :value 2 :priority 100}]}))]
+        (is (= [3 2] (player-position base-game 1)))
+        (is (= 3 (player-damage base-game 1)))))
+
+    (testing "Robot landing on a belt in path of a laser, where belt takes him out of path of laser, incurs no damage"
+      (let [base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :direction] :north)
+                          (assoc-in [:state :players 0 :robot :position] [2 4])
+                          (complete-registers {player1-id [{:type :move :value 2 :priority 100}]}))]
+        (is (= [2 1] (player-position base-game 1)))
+        (is (zero? (player-damage base-game 1)))))))
 
 (deftest robot-laser-interaction
   ;;TODO

@@ -77,11 +77,13 @@
 
 (def movable-robot-states #{:ready :powered-down})
 
+(defn player-robot-path
+  [player-id]
+  [:players ALL (if-path [:id (partial = player-id)] [:robot])])
+
 (defn update-robot-for-player
   [state player-id new-robot-attrs]
-  (transform [:players ALL (if-path [:id (partial = player-id)] [:robot])]
-             #(merge % new-robot-attrs)
-             state))
+  (transform (player-robot-path player-id) #(merge % new-robot-attrs) state))
 
 (defn can-move-in-direction?
   [board from direction]
@@ -184,7 +186,7 @@
     (reduce (fn [state [player-id {:keys [position] :as robot}]]
               (if (< 1 (count (filter #(= position (:position (second %))) new-player-pos)))
                 state
-                (setval [:players ALL (if-path [:id (partial = player-id)] [:robot])] robot state)))
+                (setval (player-robot-path player-id) robot state)))
             state new-player-pos)))
 
 (defn priority
@@ -206,6 +208,67 @@
              (partial apply-rotator-gear-movement (:board state))
              state))
 
+(defn squares-matching
+  "Return all [x y]'s of squares in the board that return truey for the given predicate"
+  [board pred]
+  (let [[max-x max-y] (board-size board)]
+    (keep (fn [y]
+            (when-let [x (first (keep (fn [x] (when (pred (square-at board [x y])) x))
+                                      (range max-x)))]
+              [x y]))
+          (range max-y))))
+
+(defn all-player-positions [{:keys [players]}] (map (comp :position :robot) players))
+
+(defn all-wall-lasers
+  [board]
+  (let [laser-positions (squares-matching board :laser)]
+    (map (juxt identity (partial square-at board)) laser-positions)))
+
+(defn square-seq
+  "Returns a seq of board squares from start-pos to the end of the board"
+  [board start-pos direction]
+  (lazy-seq
+    (when-let [square (square-at board start-pos)]
+      (cons [start-pos square]
+            (let [next-pos (translate-position start-pos direction 1)]
+              (square-seq board
+                          next-pos
+                          direction))))))
+
+(defn apply-damage-to-robot
+  [robot damage]
+  (update robot :damage + damage))
+
+(defn can-laser-pass-through-square?
+  [board position direction]
+  (and (can-move-in-direction? board position direction)
+       (can-move-to-square? board position direction)))
+
+(defn fire-laser
+  [{:keys [board] :as state} [laser-position {[laser-wall number-lasers] :laser :as l}]]
+  (let [laser-direction (get-in rotate-delta [:u-turn laser-wall])
+        player-positions (set (all-player-positions state))]
+    ;; walk the laser through the board, until it hits either a robot, a wall, or the edge of the board
+    (reduce (fn [state [position]]
+              (cond
+                (player-positions position)
+                (let [player (owner-player-at-position state position)]
+                  (reduced (transform (player-robot-path (:id player))
+                                      #(apply-damage-to-robot % number-lasers)
+                                      state)))
+
+                (and (not= laser-position position)
+                     (not (can-laser-pass-through-square? board position laser-direction)))
+                (reduced state)
+
+                :else state))
+            state (square-seq board laser-position laser-direction))))
+
+(defn fire-wall-lasers [{:keys [board players] :as state}]
+  (let [wall-lasers (all-wall-lasers board)]
+    (reduce fire-laser state wall-lasers)))
+
 (defn execute-register-number
   [state [_ player-id->register]]
   (let [prioritised-players (sort-by (partial priority state) > player-id->register)]
@@ -213,7 +276,9 @@
       (reduce execute-player-register state prioritised-players)
       (move-players-along-conveyer-belt true)
       (move-players-along-conveyer-belt false)
-      (move-rotator-gears)))
+      (move-rotator-gears)
+      (fire-wall-lasers)
+      ))
 
   ;; 1. move robots
   ;; 2. board elements move
@@ -280,13 +345,7 @@
   (move-robot [board [x y] all-robots {:keys [type value]}]
     ;; TODO
     )
-  (docking-bay-position [board num]
-    (let [[max-x max-y] (board-size board)]
-      (first (keep (fn [y]
-                     (when-let [x (first (keep (fn [x] (when (= (:docking-bay (square-at board [x y])) num) x))
-                                               (range max-x)))]
-                       [x y]))
-                   (range max-y))))))
+  (docking-bay-position [board num] (first (squares-matching board #(= (:docking-bay %) num)))))
 
 (s/fdef RRSeqBoard
         :args (s/cat ::board-squares ::board-squares)
@@ -302,10 +361,10 @@
   [square & walls]
   (assoc square :walls (set walls)))
 
-(defn with-laser
-  [square laser-wall]
-  {:pre [((:walls square) laser-wall)]}
-  (assoc square :laser laser-wall))
+(defn with-lasers
+  [square laser-wall num]
+  {:pre [((:walls square) laser-wall) ((set (range 1 4)) num)]}
+  (assoc square :laser [laser-wall num]))
 
 (defn with-belt
   [square belt-direction & [express?]]
