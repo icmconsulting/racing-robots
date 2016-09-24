@@ -51,14 +51,6 @@
         (update :turns conj {:players (deal-cards-to-players dealt-cards players)})
         (assoc :program-deck remaining-deck))))
 
-(comment (let [players (vec (map-indexed (partial default-player-positions blank-board)
-                                         (shuffle [{:name "1"} {:name "2"} {:name "3"} {:name "4"}])))]
-           (:turns (start-next-turn*
-                     {:program-deck (shuffle program-card-deck)
-                      :board        blank-board
-                      :players      (assoc-in players [0 :robot :damage] 9)
-                      :turns        []}))))
-
 (defn player-by-id
   [state player-id]
   (first (filter #(= player-id (:id %)) (:players state))))
@@ -176,7 +168,6 @@
           square-after-belt (square-at board position-after-belt)]
       (merge robot
              (cond
-
                ;; move the robot
                (or (not express-only?) (and express-only? express))
                {:position  position-after-belt
@@ -200,13 +191,29 @@
   [state [player-id register]]
   (+ (:priority register) (- 1 (/ (get-in (player-by-id state player-id) [:robot :docking-bay]) 10))))
 
+(defn on-rotator-gear?
+  [board position]
+  (when position (:rotator (square-at board position))))
+
+(defn apply-rotator-gear-movement
+  [board robot]
+  (if-let [rotator-direction (on-rotator-gear? board (:position robot))]
+    (update robot :direction (get rotate-delta rotator-direction))
+    robot))
+
+(defn move-rotator-gears [state]
+  (transform [:players ALL :robot]
+             (partial apply-rotator-gear-movement (:board state))
+             state))
+
 (defn execute-register-number
   [state [_ player-id->register]]
   (let [prioritised-players (sort-by (partial priority state) > player-id->register)]
     (->
       (reduce execute-player-register state prioritised-players)
       (move-players-along-conveyer-belt true)
-      (move-players-along-conveyer-belt false)))
+      (move-players-along-conveyer-belt false)
+      (move-rotator-gears)))
 
   ;; 1. move robots
   ;; 2. board elements move
@@ -307,18 +314,8 @@
 
 (defn with-rotator
   [square direction]
-  {:pre [(#{:clockwise :anti-clockwise} direction)]}
+  {:pre [(#{:right :left :u-turn} direction)]}
   (assoc square :rotator direction))
-
-;; Simple 12x16 board with no obstacles, walls or repair pods
-(def blank-board
-  (->RRSeqBoard
-    (concat
-      (repeat 15 (repeat 12 blank-square))
-      [(concat (repeat 4 blank-square)
-               (map docking-bay-square (range 1 5))
-               (repeat 4 blank-square))])))
-
 
 (defn player-with-robot
   [board idx player]

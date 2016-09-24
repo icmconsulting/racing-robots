@@ -19,6 +19,14 @@
                                   (gen/vector player-generator num-players))
                          board-generator))))
 
+(def blank-board
+  (->RRSeqBoard
+    (concat
+      (repeat 15 (repeat 12 blank-square))
+      [(concat (repeat 4 blank-square)
+               (map docking-bay-square (range 1 5))
+               (repeat 4 blank-square))])))
+
 ;; test robot movement registers
 (defn player-state
   [game player-num]
@@ -231,12 +239,39 @@
                                    (complete-registers {player1-id [{:type :move :value 2 :priority 290}]}))]
         (is (= :destroyed (player-state single-player-game 1)))))))
 
+(def board-with-rotators
+  (->RRSeqBoard
+    (concat
+      [(concat [(with-rotator blank-square :left)] (repeat 3 blank-square))]
+      [(repeat 4 blank-square)]
+      [(concat (repeat 3 blank-square) [(with-rotator blank-square :right)])]
+      [(concat (repeat 3 blank-square) [(with-rotator blank-square :u-turn)])]
+      [(map docking-bay-square (range 1 5))])))
+
 (deftest rotator-interaction
-  (testing "Robot landing on a rotator will rotate in the direction of the rotator"
-    ;;TODO
+  (let [base-game (new-game [{:name "player 1"}] board-with-rotators)
+        player1-id (get-in base-game [:state :players 0 :id])]
+    (testing "Robot landing on a rotate-left square is rotated left"
+      (let [base-single-player-game (complete-registers base-game {player1-id [{:type :move :value 2 :priority 290}
+                                                                               {:type :move :value 2 :priority 290}]})]
+        (is (= :west (player-direction base-single-player-game 1)))))
+
+    (testing "Robot landing on a rotator right square is rotated right"
+      (let [base-single-player-game (complete-registers base-game {player1-id [{:type :move :value 2 :priority 290}
+                                                                               {:type :rotate :value :right :priority 100}
+                                                                               {:type :move :value 3 :priority 290}]})]
+        (is (= :south (player-direction base-single-player-game 1)))))
+
+    (testing "Robot landing on a uturn rotator rotated 180 degrees"
+      (let [base-single-player-game (->
+                                      base-game
+                                      (assoc-in [:state :players 0 :robot :direction] :east)
+                                      (complete-registers {player1-id [{:type :move :value 3 :priority 290}
+                                                                       {:type :rotate :value :left :priority 100}
+                                                                       {:type :move :value 1 :priority 290}]}))]
+        (is (= :south (player-direction base-single-player-game 1)))))))
 
 
-    ))
 
 (deftest wall-laser-interaction
   ;;TODO
