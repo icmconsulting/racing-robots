@@ -326,5 +326,26 @@
         (is (zero? (player-damage base-game 1)))))))
 
 (deftest robot-laser-interaction
-  ;;TODO
-  )
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] board-with-walls)
+        player1-id (get-in base-game [:state :players 0 :id])
+        player2-id (get-in base-game [:state :players 1 :id])]
+    (testing "Robot in immediate line of sight of other robot single damage point"
+      (let [base-game (complete-registers base-game {player1-id [{:type :move :value 1 :priority 100}
+                                                                 {:type :rotate :value :right :priority 100}]
+                                                     player2-id [{:type :move :value 1 :priority 100}
+                                                                 {:type :rotate :value :right :priority 100}]})]
+        (is (zero? (player-damage base-game 1)))
+        (is (= 1 (player-damage base-game 2)))))
+
+    (testing "Robot hiding behind a wall does not gain damage from a robot laser"
+      (let [base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :direction] :west)
+                          (assoc-in [:state :players 0 :robot :position] [2 2])
+                          (complete-registers {player1-id [{:type :move :value 1 :priority 100}
+                                                           {:type :rotate :value :left :priority 100}]
+                                               player2-id [{:type :move :value 1 :priority 100}
+                                                           {:type :move :value -1 :priority 100}]}))]
+        (is (zero? (player-damage base-game 1)))
+        (is (zero? (player-damage base-game 2)))))))
+
+

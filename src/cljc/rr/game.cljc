@@ -88,13 +88,13 @@
 (defn can-move-in-direction?
   [board from direction]
   {:pre [(vector? from) (keyword? direction)]}
-  (nil? ((:walls (square-at board  from)) direction)))
+  (nil? ((:walls (square-at board  from) #{}) direction)))
 
 (defn can-move-to-square?
   [board to direction]
   {:pre [(vector? to) (keyword? direction)]}
   (if-let [new-square (square-at board to)]
-    (nil? ((:walls new-square)
+    (nil? ((:walls new-square #{})
             ({:west  :east
               :north :south
               :east  :west
@@ -240,34 +240,56 @@
   [robot damage]
   (update robot :damage + damage))
 
-(defn can-laser-pass-through-square?
-  [board position direction]
-  (and (can-move-in-direction? board position direction)
-       (can-move-to-square? board position direction)))
+(defn can-laser-pass-out-of-square?
+  [square direction]
+  (nil? ((:walls square #{}) direction)))
+
+(defn can-laser-pass-into-square?
+  [square laser-direction]
+  (nil? ((:walls square #{}) (get-in rotate-delta [:u-turn laser-direction]))))
 
 (defn fire-laser
-  [{:keys [board] :as state} [laser-position {[laser-wall number-lasers] :laser :as l}]]
+  [{:keys [board] :as state} [laser-position {[laser-wall number-lasers] :laser} :as laser]]
   (let [laser-direction (get-in rotate-delta [:u-turn laser-wall])
         player-positions (set (all-player-positions state))]
     ;; walk the laser through the board, until it hits either a robot, a wall, or the edge of the board
-    (reduce (fn [state [position]]
+    (reduce (fn [state [position square]]
               (cond
+                (and (not= laser-position position)
+                     (not (can-laser-pass-into-square? square laser-direction)))
+                (reduced state)
+
                 (player-positions position)
                 (let [player (owner-player-at-position state position)]
                   (reduced (transform (player-robot-path (:id player))
                                       #(apply-damage-to-robot % number-lasers)
                                       state)))
 
-                (and (not= laser-position position)
-                     (not (can-laser-pass-through-square? board position laser-direction)))
+                (not (can-laser-pass-out-of-square? square laser-direction))
                 (reduced state)
 
                 :else state))
             state (square-seq board laser-position laser-direction))))
 
-(defn fire-wall-lasers [{:keys [board players] :as state}]
+(defn fire-wall-lasers [{:keys [board] :as state}]
   (let [wall-lasers (all-wall-lasers board)]
     (reduce fire-laser state wall-lasers)))
+
+(defn robot->laser [board {:keys [direction position]}]
+  {:pre [position direction]}
+  ;; robots shouldn't be able to shoot themselves, so laser should only take effect
+  ;; in a square ahead of the robot in its direction. Obvsouly shouldn't be the case
+  ;; if there is a wall between the robot and the next square
+  (when-let [advanced-position (translate-position position  direction 1)]
+    (when (and (can-laser-pass-out-of-square? (square-at board position) direction)
+               (can-laser-pass-into-square? (square-at board advanced-position) direction))
+      [advanced-position
+       {:laser [(get-in rotate-delta [:u-turn direction]) 1]}])))
+
+(defn fire-robot-lasers [{:keys [players board] :as state}]
+  (let [robot-lasers (keep (comp (partial robot->laser board) :robot)
+                                  (filter (comp :position :robot) players))]
+    (reduce fire-laser state robot-lasers)))
 
 (defn execute-register-number
   [state [_ player-id->register]]
@@ -278,7 +300,7 @@
       (move-players-along-conveyer-belt false)
       (move-rotator-gears)
       (fire-wall-lasers)
-      ))
+      (fire-robot-lasers)))
 
   ;; 1. move robots
   ;; 2. board elements move
@@ -407,3 +429,7 @@
 ;; TODO:
 ;; - Lock registers for players
 ;; - Pits
+;; - Flags
+;; - Repair stations
+;; - powering down
+;; -
