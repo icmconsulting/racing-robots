@@ -14,6 +14,7 @@
   (start-next-turn [game])
   (complete-registers [game player-id->registers])
   (clean-up [game player-commands])
+  (players  [game])
   (is-game-over? [game]))
 
 (defprotocol RRBoard
@@ -280,7 +281,7 @@
   ;; robots shouldn't be able to shoot themselves, so laser should only take effect
   ;; in a square ahead of the robot in its direction. Obvsouly shouldn't be the case
   ;; if there is a wall between the robot and the next square
-  (when-let [advanced-position (translate-position position  direction 1)]
+  (let [advanced-position (translate-position position direction 1)]
     (when (and (can-laser-pass-out-of-square? (square-at board position) direction)
                (can-laser-pass-into-square? (square-at board advanced-position) direction))
       [advanced-position
@@ -291,6 +292,27 @@
                                   (filter (comp :position :robot) players))]
     (reduce fire-laser state robot-lasers)))
 
+(defn apply-touched-flag
+  [flag-position flag-number {:keys [flags] :as robot}]
+  (if (or (empty? flags)
+          (= (inc (apply max (:flags robot))) flag-number))
+    (-> robot
+        (assoc :archive-marker flag-position)
+        (update :flags conj flag-number))
+    robot))
+
+(defn robot-touching-flag
+  [state flag-position]
+  (if-let [player-at-position (owner-player-at-position state flag-position)]
+    (transform (player-robot-path (:id player-at-position))
+               (partial apply-touched-flag flag-position (:flag (square-at (:board state) flag-position)))
+               state)
+    state))
+
+(defn touch-flags [{:keys [players board] :as state}]
+  (let [flag-squares (squares-matching board :flag)]
+    (reduce robot-touching-flag state flag-squares)))
+
 (defn execute-register-number
   [state [_ player-id->register]]
   (let [prioritised-players (sort-by (partial priority state) > player-id->register)]
@@ -300,12 +322,13 @@
       (move-players-along-conveyer-belt false)
       (move-rotator-gears)
       (fire-wall-lasers)
-      (fire-robot-lasers)))
+      (fire-robot-lasers)
+      (touch-flags)))
 
   ;; 1. move robots
   ;; 2. board elements move
   ;; 3. lasers fire
-  ;; 4. touch checkpoints
+  ;; 4. touch checkpoints and repair sites
   ;; TODO!!
   )
 
@@ -324,10 +347,23 @@
   (update-in game [:state]
              #(reduce execute-register-number % (registers-by-execution-order player-ids->registers))))
 
+(defn player-state-fn
+  [{:keys [board]}]
+  (let [flag-numbers (set (map (comp :flag (partial square-at board))
+                               (squares-matching board :flag)))]
+    (fn [{:keys [robot]}]
+      (cond (= #spy/p flag-numbers #spy/p (:flags robot))
+            :finished
+            (zero? (:lives robot))
+            :dead
+            :else
+            :playing))))
+
 (defrecord RRGameState [state]
   RRGame
   (start-next-turn [game] (update-in game [:state] start-next-turn*))
   (complete-registers [game player-id->registers] (execute-each-register game player-id->registers))
+  (players  [game] )
   (clean-up [game player-commands])
   (is-game-over? [game]))
 
@@ -398,6 +434,11 @@
   {:pre [(#{:right :left :u-turn} direction)]}
   (assoc square :rotator direction))
 
+(defn with-flag
+  [square flag-number]
+  {:pre [((set (range 1 6)) flag-number)]}
+  (assoc square :flag flag-number))
+
 (defn player-with-robot
   [board idx player]
   (let [start-position (docking-bay-position board (inc idx))]
@@ -409,7 +450,7 @@
               :state            :ready
               :lives            4
               :damage           0
-              :flags-touched    []
+              :flags            #{}
               :locked-registers #{}})))
 
 (defn player-with-game-id

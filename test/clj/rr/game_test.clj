@@ -44,6 +44,14 @@
   [game player-num]
   (get-in game [:state :players (dec player-num) :robot :damage]))
 
+(defn player-flags
+  [game player-num]
+  (get-in game [:state :players (dec player-num) :robot :flags]))
+
+(defn player-archive-marker
+  [game player-num]
+  (get-in game [:state :players (dec player-num) :robot :archive-marker]))
+
 (deftest moving-robot
   (let [base-game (new-game [{:name "player 1"}] blank-board)
         player-id (get-in base-game [:state :players 0 :id])]
@@ -347,5 +355,51 @@
                                                            {:type :move :value -1 :priority 100}]}))]
         (is (zero? (player-damage base-game 1)))
         (is (zero? (player-damage base-game 2)))))))
+
+(def board-with-flags
+  (->RRSeqBoard
+    (concat
+      [(concat [blank-square (with-flag blank-square 1)] (repeat 2 blank-square))]
+      [(concat (repeat 3 blank-square) [(with-flag blank-square 3)])]
+      [(concat (repeat 2 blank-square) [(with-flag blank-square 2) blank-square])]
+      [(repeat 4 blank-square)]
+      [(map docking-bay-square (range 1 5))])))
+
+(deftest robots-and-flags
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] board-with-flags)
+        player1-id (get-in base-game [:state :players 0 :id])]
+    (testing "Robot landing on the first flag at the end of the turn has flag added to it, and it's archive marker placed on it"
+      (let [base-game (complete-registers base-game {player1-id [{:type :move :value 3 :priority 100}
+                                                                 {:type :rotate :value :right :priority 100}
+                                                                 {:type :move :value 1 :priority 100}
+                                                                 {:type :rotate :value :left :priority 100}
+                                                                 {:type :move :value 1 :priority 100}]})]
+        (is (= #{1} (player-flags base-game 1)))
+        (is (= [1 0] (player-archive-marker base-game 1)))))
+
+    (testing "Robots must hit flags in order for a flag touch to be registered"
+      (let [base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :flags] #{1})
+                          (assoc-in [:state :players 0 :robot :archive-marker] [1 0])
+                          (complete-registers {player1-id [{:type :move :value 3 :priority 100}
+                                                           {:type :rotate :value :right :priority 100}
+                                                           {:type :move :value 3 :priority 100}]}))]
+        (is (= #{1} (player-flags base-game 1)))
+        (is (= [1 0] (player-archive-marker base-game 1)))))
+
+    (testing "A player has finished the game when their robot has touched each flag"
+      (let [base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :flags] #{1 2})
+                          (assoc-in [:state :players 0 :robot :position] [0 1])
+                          (assoc-in [:state :players 0 :robot :direction] :east)
+                          (complete-registers {player1-id [{:type :move :value 3 :priority 100}]}))]
+        (is (= #{1 2 3} (player-flags base-game 1)))
+        (is (= :finished ((player-state-fn (:state base-game)) (get-in base-game [:state :players 0]))))))))
+
+(deftest robot-damage-and-repair-squares
+  
+
+
+  )
 
 
