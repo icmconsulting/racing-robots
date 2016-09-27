@@ -377,7 +377,7 @@
         (is (= #{1} (player-flags base-game 1)))
         (is (= [1 0] (player-archive-marker base-game 1)))))
 
-    (testing "Robots must hit flags in order for a flag touch to be registered"
+    (testing "Robots must hit flags in order for a flag touch to be registered, but archive marker is set irrespective"
       (let [base-game (-> base-game
                           (assoc-in [:state :players 0 :robot :flags] #{1})
                           (assoc-in [:state :players 0 :robot :archive-marker] [1 0])
@@ -385,7 +385,7 @@
                                                            {:type :rotate :value :right :priority 100}
                                                            {:type :move :value 3 :priority 100}]}))]
         (is (= #{1} (player-flags base-game 1)))
-        (is (= [1 0] (player-archive-marker base-game 1)))))
+        (is (= [3 1] (player-archive-marker base-game 1)))))
 
     (testing "A player has finished the game when their robot has touched each flag"
       (let [base-game (-> base-game
@@ -433,4 +433,40 @@
                                                                  {:type :move :value 2 :priority 100}]})]
         (is (= :destroyed (player-state base-game 1)))))))
 
-;; a destroyed robot re-enters play in the cleanup step
+(def board-with-repair-stations
+  (->RRSeqBoard
+    (concat
+      [(concat [(with-repair blank-square)] (repeat 3 blank-square))]
+      [(repeat 4 blank-square)]
+      [(concat (repeat 2 blank-square) [(with-pit blank-square) blank-square])]
+      [(repeat 4 blank-square)]
+      [(map docking-bay-square (range 1 5))])))
+
+(deftest robot-repair-station-interaction
+  (let [base-game (new-game [{:name "player 1"}] board-with-repair-stations)
+        player1-id (get-in base-game [:state :players 0 :id])]
+    (testing "Robot landing on a repair site has their archive marker moved to this square, but no damage reduction"
+      (let [base-game (-> base-game
+                        (assoc-in [:state :players 0 :robot :damage] 5)
+                        (complete-registers {player1-id [{:type :move :value 2 :priority 100}
+                                                         {:type :move :value 2 :priority 100}
+                                                         {:type :rotate :value :right :priority 100}
+                                                         {:type :move :value 1 :priority 100}]}))]
+        (is (= [0 0] (player-archive-marker base-game 1)))
+        (is (= 5 (player-damage base-game 1)))))
+
+    (testing "Robot on repair square at clean-up loses a damage token"
+      (let [base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :damage] 5)
+                          (complete-registers {player1-id [{:type :move :value 2 :priority 100}
+                                                           {:type :move :value 2 :priority 100}]})
+                          (clean-up {}))]
+        (is (= 4 (player-damage base-game 1)))))
+
+    (testing "Robot on repair square can't reduce their damage tokens below 0"
+      (let [base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :damage] 0)
+                          (complete-registers {player1-id [{:type :move :value 2 :priority 100}
+                                                           {:type :move :value 2 :priority 100}]})
+                          (clean-up {}))]
+        (is (zero? (player-damage base-game 1)))))))

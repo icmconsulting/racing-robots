@@ -304,25 +304,35 @@
     (reduce fire-laser state robot-lasers)))
 
 (defn apply-touched-flag
-  [flag-position flag-number {:keys [flags] :as robot}]
+  [flag-number {:keys [flags] :as robot}]
   (if (or (empty? flags)
           (= (inc (apply max (:flags robot))) flag-number))
-    (-> robot
-        (assoc :archive-marker flag-position)
-        (update :flags conj flag-number))
+    (update robot :flags conj flag-number)
     robot))
 
 (defn robot-touching-flag
   [state flag-position]
   (if-let [player-at-position (owner-player-at-position state flag-position)]
     (transform (player-robot-path (:id player-at-position))
-               (partial apply-touched-flag flag-position (:flag (square-at (:board state) flag-position)))
+               (partial apply-touched-flag (:flag (square-at (:board state) flag-position)))
                state)
     state))
 
-(defn touch-flags [{:keys [players board] :as state}]
+(defn touch-flags [{:keys [board] :as state}]
   (let [flag-squares (squares-matching board :flag)]
     (reduce robot-touching-flag state flag-squares)))
+
+(defn robot-places-archive-marker [state archive-square-position]
+  (if-let [player-at-position (owner-player-at-position state archive-square-position)]
+    (transform (player-robot-path (:id player-at-position))
+               #(assoc % :archive-marker archive-square-position)
+               state)
+    state))
+
+(defn touch-archive-point
+  [state]
+  (let [archive-squares (squares-matching (:board state) (some-fn :flag :repair))]
+    (reduce robot-places-archive-marker state archive-squares)))
 
 (defn execute-register-number
   [state [_ player-id->register]]
@@ -335,7 +345,8 @@
       (move-rotator-gears)
       (fire-wall-lasers)
       (fire-robot-lasers)
-      (touch-flags)))
+      (touch-flags)
+      (touch-archive-point)))
 
   ;; 1. move robots
   ;; 2. board elements move
@@ -371,12 +382,33 @@
             :else
             :playing))))
 
+(defn dec-damage
+  [damage]
+  (if (zero? damage) damage (dec damage)))
+
+(defn repair-robot-on-square
+  [state repair-square]
+  (if-let [{:keys [id]} (owner-player-at-position state repair-square)]
+    (transform (conj (player-robot-path id) :damage) dec-damage state)
+    state))
+
+(defn repair-robots-on-repair-squares
+  [state]
+  (let [repair-squares (squares-matching (:board state) :repair)]
+    (reduce repair-robot-on-square state repair-squares)))
+
+(defn execute-clean-up
+  [{:keys [state] :as game} player-commands]
+  (assoc game :state
+              (-> state
+                  (repair-robots-on-repair-squares))))
+
 (defrecord RRGameState [state]
   RRGame
   (start-next-turn [game] (update-in game [:state] start-next-turn*))
   (complete-registers [game player-id->registers] (execute-each-register game player-id->registers))
-  (players  [game] )
-  (clean-up [game player-commands])
+  (players  [game] (get-in game [:state :players]))
+  (clean-up [game player-commands] (execute-clean-up game player-commands))
   (is-game-over? [game]))
 
 ;; program card deck
@@ -421,7 +453,7 @@
         :args (s/cat ::board-squares ::board-squares)
         :ret ::seq-board)
 
-(def blank-square {:walls #{} :repair? false :flag nil :belt nil :rotator nil :pit nil :laser nil})
+(def blank-square {:walls #{} :repair false :flag nil :belt nil :rotator nil :pit false :laser nil})
 
 (defn docking-bay-square
   [num]
@@ -455,6 +487,10 @@
   [square]
   (assoc square :pit true))
 
+(defn with-repair
+  [square]
+  (assoc square :repair true))
+
 (defn player-with-robot
   [board idx player]
   (let [start-position (docking-bay-position board (inc idx))]
@@ -485,7 +521,5 @@
 
 ;; TODO:
 ;; - Lock registers for players
-;; - Pits
-;; - Repair stations
 ;; - powering down
 ;; -
