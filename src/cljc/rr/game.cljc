@@ -204,11 +204,6 @@
     (update robot :direction (get rotate-delta rotator-direction))
     robot))
 
-(defn move-rotator-gears [state]
-  (transform [:players ALL :robot]
-             (partial apply-rotator-gear-movement (:board state))
-             state))
-
 (defn squares-matching
   "Return all [x y]'s of squares in the board that return truey for the given predicate"
   [board pred]
@@ -218,6 +213,22 @@
                                       (range max-x)))]
               [x y]))
           (range max-y))))
+
+(defn destroy-robot-in-pit
+  [state pit-position]
+  (if-let [{:keys [id]} (owner-player-at-position state pit-position)]
+    (transform (player-robot-path id) #(assoc % :state :destroyed) state)
+    state))
+
+(defn into-pits
+  [{:keys [board] :as state}]
+  (let [pits (squares-matching board :pit)]
+    (reduce destroy-robot-in-pit state pits)))
+
+(defn move-rotator-gears [state]
+  (transform [:players ALL :robot]
+             (partial apply-rotator-gear-movement (:board state))
+             state))
 
 (defn all-player-positions [{:keys [players]}] (map (comp :position :robot) players))
 
@@ -320,6 +331,7 @@
       (reduce execute-player-register state prioritised-players)
       (move-players-along-conveyer-belt true)
       (move-players-along-conveyer-belt false)
+      (into-pits)
       (move-rotator-gears)
       (fire-wall-lasers)
       (fire-robot-lasers)
@@ -352,7 +364,7 @@
   (let [flag-numbers (set (map (comp :flag (partial square-at board))
                                (squares-matching board :flag)))]
     (fn [{:keys [robot]}]
-      (cond (= #spy/p flag-numbers #spy/p (:flags robot))
+      (cond (= flag-numbers (:flags robot))
             :finished
             (zero? (:lives robot))
             :dead
@@ -439,6 +451,10 @@
   {:pre [((set (range 1 6)) flag-number)]}
   (assoc square :flag flag-number))
 
+(defn with-pit
+  [square]
+  (assoc square :pit true))
+
 (defn player-with-robot
   [board idx player]
   (let [start-position (docking-bay-position board (inc idx))]
@@ -470,7 +486,6 @@
 ;; TODO:
 ;; - Lock registers for players
 ;; - Pits
-;; - Flags
 ;; - Repair stations
 ;; - powering down
 ;; -

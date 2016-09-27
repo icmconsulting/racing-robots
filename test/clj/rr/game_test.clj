@@ -396,10 +396,41 @@
         (is (= #{1 2 3} (player-flags base-game 1)))
         (is (= :finished ((player-state-fn (:state base-game)) (get-in base-game [:state :players 0]))))))))
 
-(deftest robot-damage-and-repair-squares
-  
+(def board-with-pits
+  (->RRSeqBoard
+    (concat
+      [(concat [blank-square (with-pit blank-square)] (repeat 2 blank-square))]
+      [(concat (repeat 2 blank-square) [(with-belt blank-square :east) (with-pit blank-square)])]
+      [(concat (repeat 2 blank-square) [(with-pit blank-square) blank-square])]
+      [(repeat 4 blank-square)]
+      [(map docking-bay-square (range 1 5))])))
 
+(deftest robot-and-pit-squares
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] board-with-pits)
+        player1-id (get-in base-game [:state :players 0 :id])
+        player2-id (get-in base-game [:state :players 1 :id])]
+    (testing "Robot that falls into a pit is destroyed"
+      (let [base-game (complete-registers base-game {player1-id [{:type :move :value 3 :priority 100}
+                                                                 {:type :rotate :value :right :priority 100}
+                                                                 {:type :move :value 1 :priority 100}
+                                                                 {:type :rotate :value :left :priority 100}
+                                                                 {:type :move :value 1 :priority 100}]})]
+        (is (= :destroyed (player-state base-game 1)))))
 
-  )
+    (testing "Robot that is pushed into pit is destroyed"
+      (let [base-game (complete-registers base-game {player1-id [{:type :move :value 3 :priority 100}
+                                                                 {:type :rotate :value :right :priority 100}
+                                                                 {:type :move :value 1 :priority 100}]
+                                                     player2-id [{:type :move :value 1 :priority 300}
+                                                                 {:type :move :value 1 :priority 300}
+                                                                 {:type :move :value 1 :priority 100}]})]
+        (is (= :destroyed (player-state base-game 1)))
+        (is (= :ready (player-state base-game 2)))))
 
+    (testing "Robot dropped into a pit by a belt is destroyed"
+      (let [base-game (complete-registers base-game {player1-id [{:type :move :value 3 :priority 100}
+                                                                 {:type :rotate :value :right :priority 100}
+                                                                 {:type :move :value 2 :priority 100}]})]
+        (is (= :destroyed (player-state base-game 1)))))))
 
+;; a destroyed robot re-enters play in the cleanup step
