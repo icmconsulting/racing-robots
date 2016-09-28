@@ -409,7 +409,7 @@
     (reduce repair-robot-on-square state repair-squares)))
 
 (defn random-adjacent-square
-  [{:keys [board players]} [x y]]
+  [{:keys [board players] :as b} [x y]]
   (let [all-adj-squares (->>
                           (concat (map vector (range (dec x) (inc (inc x))) (repeat (dec y)))
                                      [[(dec x) y] [(inc x) y]]
@@ -420,7 +420,7 @@
     (rand-nth (seq (clojure.set/difference all-adj-squares all-player-squares)))))
 
 (defn respawn
-  [state {:keys [robot id] :as player}]
+  [state {:keys [robot id]}]
   (if (zero? (:lives robot))
     (setval [:players ALL #(= id (:id %)) :state] :dead state)
     (let [player-on-archive (some #(= (:archive-marker robot) (get-in % [:robot :position])) (:players state))]

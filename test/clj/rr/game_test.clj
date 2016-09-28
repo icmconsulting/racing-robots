@@ -476,7 +476,7 @@
         (is (zero? (player-damage base-game 1)))))))
 
 (deftest destroyed-robots
-  (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] board-with-lasers)
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"}] board-with-lasers)
         player1-id (get-in base-game [:state :players 0 :id])]
     (testing "Robot reaching 0 damage"
       (let [base-game (-> base-game
@@ -505,4 +505,25 @@
                             (assoc-in [:state :players 1 :robot :position] [0 4])
                             (clean-up {}))]
             (is (not= (player-position base-game 1) (player-position base-game 2)))
-            (is (adjacent-to? [0 4] (player-position base-game 1)))))))))
+            (is (adjacent-to? [0 4] (player-position base-game 1)))))
+
+        (testing "If another player is located on the player's archive marker, then the player is placed in a location adjacent
+                  to the player's archive marker, but not on another robot"
+          (let [base-game (-> base-game
+                              (assoc-in [:state :players 1 :robot :position] [0 4])
+                              (assoc-in [:state :players 2 :robot :position]
+                                        (random-adjacent-square (:state base-game) [0 4]))
+                              (clean-up {}))]
+            (is (not= (player-position base-game 1) (player-position base-game 2)))
+            (is (not= (player-position base-game 1) (player-position base-game 3))))))
+
+      (testing "Multiple robots respawning"
+        (let [base-game (-> base-game
+                            (update-in [:state :players 0 :robot] merge {:damage 10 :state :destroyed :direction nil :position nil})
+                            (update-in [:state :players 1 :robot] merge {:damage 10 :state :destroyed :direction nil :position nil}))]
+          (testing "Respawning to the same archive marker does not meant the robots start on the same position"
+            (let [cleaned-up-game (-> base-game
+                                      (assoc-in [:state :players 0 :robot :archive-marker] [0 0])
+                                      (assoc-in [:state :players 1 :robot :archive-marker] [0 0])
+                                      (clean-up {}))]
+              (is (not= (player-position cleaned-up-game 1) (player-position cleaned-up-game 2))))))))))
