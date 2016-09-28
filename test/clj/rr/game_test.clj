@@ -52,6 +52,10 @@
   [game player-num]
   (get-in game [:state :players (dec player-num) :robot :archive-marker]))
 
+(defn player-lives
+  [game player-num]
+  (get-in game [:state :players (dec player-num) :robot :lives]))
+
 (deftest moving-robot
   (let [base-game (new-game [{:name "player 1"}] blank-board)
         player-id (get-in base-game [:state :players 0 :id])]
@@ -95,11 +99,11 @@
                         (-> (assoc-in base-game [:state :players 0 :robot :direction] :north)
                             (assoc-in [:state :players 0 :robot :position] [4 4]))]]
         (doseq [game base-games]
-          (is (= :destroyed
-                 (player-state
-                   (complete-registers game
-                                       {player-id (vec (repeat 5 {:type :move :value 1 :priority 100}))})
-                   1))))))))
+          (let [base-game (complete-registers game
+                                              {player-id (vec (repeat 5 {:type :move :value 1 :priority 100}))})]
+            (is (= :destroyed (player-state base-game 1)))
+            (is (nil? (player-position base-game 1)))
+            (is (nil? (player-direction base-game 1)))))))))
 
 (deftest robot-movement-interactions
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] blank-board)
@@ -470,3 +474,34 @@
                                                            {:type :move :value 2 :priority 100}]})
                           (clean-up {}))]
         (is (zero? (player-damage base-game 1)))))))
+
+(deftest destroyed-robots
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] board-with-lasers)
+        player1-id (get-in base-game [:state :players 0 :id])]
+    (testing "Robot reaching 0 damage"
+      (let [base-game (-> base-game
+                          (update-in [:state :players 0 :robot] merge {:damage 9
+                                                                       :direction :west
+                                                                       :position [2 0]
+                                                                       :archive-marker [0 4]
+                                                                       :lives 4})
+                          (complete-registers {player1-id [{:type :move :value 2 :priority 100} ;; << destroyed here
+                                                           {:type :rotate :value :left :priority 100}
+                                                           {:type :move :value 2 :priority 100}]}))]
+        (testing "Is destroyed and does not move for the rest of the turn"
+          (is (= :destroyed (player-state base-game 1)))
+          (is (nil? (player-position base-game 1)))
+          (is (nil? (player-direction base-game 1))))
+
+        (testing "Is returned to the game during the clean up phase at their archive marker, loses a life, and is reset to 2 damage"
+          (let [base-game (clean-up base-game {})]
+            (is (= [0 4] (player-position base-game 1)))
+            (is (= 3 (player-lives base-game 1)))
+            (is (= 2 (player-damage base-game 1)))))
+
+        (testing "If another player is located on the player's archive marker, then the player is placed in a location adjacent
+                  to the player's archive marker"
+          (let [base-game (-> base-game
+                            (assoc-in [:state :players 1 :robot :position] [0 4])
+                            (clean-up {}))]
+            (is (adjacent-to? [0 4] (player-position base-game 1)))))))))

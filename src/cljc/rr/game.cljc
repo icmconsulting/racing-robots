@@ -24,10 +24,6 @@
     "If the robot moves given the instruction, return the new position")
   (docking-bay-position [board num]))
 
-(defn robot-destroyed?
-  [{:keys [robot] :as player}]
-  (= 10 (:damage robot)))
-
 (defn num-cards-for-this-turn
   [{:keys [robot] :as player}]
   (- 9 (:damage robot)))
@@ -56,7 +52,13 @@
   [state player-id]
   (first (filter #(= player-id (:id %)) (:players state))))
 
-(defmulti execute-player-register (fn [_ [_ {:keys [type]}]] type))
+(defmulti execute-player-register* (fn [_ [_ {:keys [type]}]] type))
+
+(defn execute-player-register
+  [state [player-id :as reg-map]]
+  (if-not (= :destroyed (get-in (player-by-id state player-id) [:robot :state]))
+    (execute-player-register* state reg-map)
+    state))
 
 (def move-delta
   {:north [0 -1]
@@ -112,6 +114,8 @@
          (or (nil? owner-player-at-new-position)
              (is-move-possible? state (assoc-in owner-player-at-new-position [:robot :direction] direction) move-amount)))))
 
+(def destroyed-robot-attributes {:state :destroyed :position nil :direction nil})
+
 (defn move-player-robot-by-single-square
   [{:keys [board] :as state} {:keys [robot] :as player}]
   (if (movable-robot-states (:state robot))
@@ -121,7 +125,7 @@
                          position)
           new-board-square (square-at board new-position)
           new-attrs (cond
-                      (nil? new-board-square) {:state :destroyed :position nil}
+                      (nil? new-board-square) destroyed-robot-attributes
                       :else {:position new-position})
           new-state (update-robot-for-player state (:id player) new-attrs)
           owner-player-at-new-position (owner-player-at-position state new-position)]
@@ -134,7 +138,7 @@
         new-state))
     state))
 
-(defmethod execute-player-register :move
+(defmethod execute-player-register* :move
   [state [player-id {:keys [value]}]]
   (reduce
     (fn [state _] (move-player-robot-by-single-square state (player-by-id state player-id)))
@@ -154,7 +158,7 @@
             :east :west
             :west :east}})
 
-(defmethod execute-player-register :rotate
+(defmethod execute-player-register* :rotate
   [state [player-id {:keys [value]}]]
   (transform [:players ALL (if-path [:id (partial = player-id)] [:robot :direction])]
                      (get rotate-delta value)
@@ -177,8 +181,7 @@
                 :direction (if-let [[new-belt-direction] (:belt square-after-belt)]
                              new-belt-direction
                              direction)}
-               (nil? square-after-belt)
-               {:position nil :state :destroyed})))
+               (nil? square-after-belt) destroyed-robot-attributes)))
     robot))
 
 (defn move-players-along-conveyer-belt
@@ -192,7 +195,8 @@
 
 (defn priority
   [state [player-id register]]
-  (+ (:priority register) (- 1 (/ (get-in (player-by-id state player-id) [:robot :docking-bay]) 10))))
+  (+ (:priority register)
+     (/ 1 (get-in (player-by-id state player-id) [:robot :docking-bay]))))
 
 (defn on-rotator-gear?
   [board position]
@@ -217,7 +221,7 @@
 (defn destroy-robot-in-pit
   [state pit-position]
   (if-let [{:keys [id]} (owner-player-at-position state pit-position)]
-    (transform (player-robot-path id) #(assoc % :state :destroyed) state)
+    (transform (player-robot-path id) #(merge % destroyed-robot-attributes) state)
     state))
 
 (defn into-pits
@@ -248,9 +252,16 @@
                           next-pos
                           direction))))))
 
+(defn robot-destroyed?
+  [robot]
+  (<= 10 (:damage robot)))
+
 (defn apply-damage-to-robot
   [robot damage]
-  (update robot :damage + damage))
+  (let [damaged-robot (update robot :damage + damage)]
+    (if (robot-destroyed? damaged-robot)
+      (merge damaged-robot destroyed-robot-attributes)
+      damaged-robot)))
 
 (defn can-laser-pass-out-of-square?
   [square direction]
@@ -397,11 +408,26 @@
   (let [repair-squares (squares-matching (:board state) :repair)]
     (reduce repair-robot-on-square state repair-squares)))
 
+(defn respawn
+  [{:keys [robot] :as player}]
+  (if (zero? (:lives robot))
+    (assoc player :state :dead)
+    (-> player
+        (update-in [:robot :lives] dec)
+        (update-in [:robot] merge {:position (:archive-marker robot)
+                                   :direction (rand-nth [:west :east :north :south])
+                                   :damage 2}))))
+
+(defn respawn-destroyed-robots
+  [state]
+  (transform [:players ALL #(= :destroyed (get-in % [:robot :state]))] respawn state))
+
 (defn execute-clean-up
   [{:keys [state] :as game} player-commands]
   (assoc game :state
               (-> state
-                  (repair-robots-on-repair-squares))))
+                  (repair-robots-on-repair-squares)
+                  (respawn-destroyed-robots))))
 
 (defrecord RRGameState [state]
   RRGame
@@ -436,6 +462,13 @@
 (s/def ::board-squares #(= 1 (count (distinct (map count %)))))
 
 (s/def ::seq-board (s/keys :req-un [::board-squares]))
+
+(defn adjacent-to?
+  "Is p2 in a square next to p1?"
+  [[x1 y1 :as p1] [x2 y2 :as p2]]
+  ;;TODO
+  false
+  )
 
 (defrecord RRSeqBoard [board-squares]
   RRBoard
