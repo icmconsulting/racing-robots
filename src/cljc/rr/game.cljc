@@ -408,19 +408,33 @@
   (let [repair-squares (squares-matching (:board state) :repair)]
     (reduce repair-robot-on-square state repair-squares)))
 
+(defn random-adjacent-square
+  [{:keys [board players]} [x y]]
+  (let [all-adj-squares (->>
+                          (concat (map vector (range (dec x) (inc (inc x))) (repeat (dec y)))
+                                     [[(dec x) y] [(inc x) y]]
+                                     (map vector (range (dec x) (inc (inc x))) (repeat (inc y))))
+                          (filter (partial square-at board))
+                          (set))
+        all-player-squares (set (keep (comp :position :robot) players))]
+    (rand-nth (seq (clojure.set/difference all-adj-squares all-player-squares)))))
+
 (defn respawn
-  [{:keys [robot] :as player}]
+  [state {:keys [robot id] :as player}]
   (if (zero? (:lives robot))
-    (assoc player :state :dead)
-    (-> player
-        (update-in [:robot :lives] dec)
-        (update-in [:robot] merge {:position (:archive-marker robot)
-                                   :direction (rand-nth [:west :east :north :south])
-                                   :damage 2}))))
+    (setval [:players ALL #(= id (:id %)) :state] :dead state)
+    (let [player-on-archive (some #(= (:archive-marker robot) (get-in % [:robot :position])) (:players state))]
+      (->> state
+           (transform (conj (player-robot-path id) :lives) dec)
+           (transform (player-robot-path id) #(merge % {:position  (if player-on-archive
+                                                                     (random-adjacent-square state (:archive-marker robot))
+                                                                     (:archive-marker robot))
+                                                        :direction (rand-nth [:west :east :north :south])
+                                                        :damage    2}))))))
 
 (defn respawn-destroyed-robots
   [state]
-  (transform [:players ALL #(= :destroyed (get-in % [:robot :state]))] respawn state))
+  (reduce respawn state (filter #(= :destroyed (get-in % [:robot :state])) (:players state))))
 
 (defn execute-clean-up
   [{:keys [state] :as game} player-commands]
@@ -463,12 +477,14 @@
 
 (s/def ::seq-board (s/keys :req-un [::board-squares]))
 
+(defn abs
+  [x]
+  (#?(:clj Math/abs :cljs js/Math.abs) x))
+
 (defn adjacent-to?
-  "Is p2 in a square next to p1?"
+  "Is p2 in a square next to p1, incl. diagonally?"
   [[x1 y1 :as p1] [x2 y2 :as p2]]
-  ;;TODO
-  false
-  )
+  (some? (and (#{0 1} (abs (- x1 x2))) (#{0 1} (abs (- y1 y2))))))
 
 (defrecord RRSeqBoard [board-squares]
   RRBoard

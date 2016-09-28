@@ -504,4 +504,5 @@
           (let [base-game (-> base-game
                             (assoc-in [:state :players 1 :robot :position] [0 4])
                             (clean-up {}))]
+            (is (not= (player-position base-game 1) (player-position base-game 2)))
             (is (adjacent-to? [0 4] (player-position base-game 1)))))))))
