@@ -11,42 +11,25 @@
        :clj  (UUID/randomUUID))))
 
 (defprotocol RRGame
-  (start-next-turn [game])
-  (complete-registers [game player-id->registers])
+  (start-next-turn [game]) ;; => returns a RRGameTurn
+  (complete-turn [game turn])
   (clean-up [game player-commands])
   (players  [game])
   (is-game-over? [game]))
 
+(defprotocol RRGameTurn
+  (turn-number [turn])
+  (deal-cards-to-players [turn])
+  (player-enters-registers [turn player-id registers powering-down-next-turn?])
+  (player-timedout [turn player-id])
+  (registers-for-turn [turn])                               ;; => map from player-id -> []
+  (registers-required-for-turn [turn])
+  (players-powering-down-next-turn [turn]))
+
 (defprotocol RRBoard
   (board-size [board])
   (square-at [board point])
-  (move-robot [board starting-point all-robots instruction]
-    "If the robot moves given the instruction, return the new position")
   (docking-bay-position [board num]))
-
-(defn num-cards-for-this-turn
-  [{:keys [robot] :as player}]
-  (- 9 (:damage robot)))
-
-(defn deal-cards-to-players
-  [dealt-cards players]
-  (loop [[card & rest-cards :as all-cards] dealt-cards
-         [current-player & rest-players :as all-players] players]
-    (if card
-      (if (< (count (:dealt current-player [])) (:cards-due current-player))
-        (recur rest-cards (concat rest-players [(update current-player :dealt conj card)]))
-        (recur all-cards (concat rest-players [current-player])))
-      all-players)))
-
-(defn start-next-turn*
-  [{:keys [players] :as state}]
-  ;;TODO: (whole deck - locked registers) is reshuffled and dealth at the beginning of each turn!
-  (let [players (mapv #(assoc %1 :cards-due %2) players (map num-cards-for-this-turn players))
-        [dealt-cards remaining-deck] (split-at (reduce + (map :cards-due players))
-                                               (:program-deck state))]
-    (-> state
-        (update :turns conj {:players (deal-cards-to-players dealt-cards players)})
-        (assoc :program-deck remaining-deck))))
 
 (defn player-by-id
   [state player-id]
@@ -357,29 +340,27 @@
       (fire-wall-lasers)
       (fire-robot-lasers)
       (touch-flags)
-      (touch-archive-point)))
-
-  ;; 1. move robots
-  ;; 2. board elements move
-  ;; 3. lasers fire
-  ;; 4. touch checkpoints and repair sites
-  ;; TODO!!
-  )
+      (touch-archive-point))))
 
 (defn registers-by-execution-order
   [player-ids->registers]
-  (reduce-kv (fn [registers player-id rs]
-               (let [r-by-idx (map-indexed #(array-map %1 [[player-id %2]]) rs)]
+  (reduce-kv (fn [registers {:keys [id] :as player} rs]
+               (let [r-by-idx (map-indexed #(array-map %1 [[id %2]]) rs)]
                  (apply merge-with (comp vec concat) registers r-by-idx)))
              {} player-ids->registers))
 
-(defn execute-each-register
-  [game player-ids->registers]
-  {:pre [(map? player-ids->registers) ((every-pred :players :board :id :turns :program-deck) (:state game))]}
-  ;;TODO: assert each player has a set of registers or is :powered-down
+;;TODO: refactor execute-each-register to use the new Turn protocol
 
-  (update-in game [:state]
-             #(reduce execute-register-number % (registers-by-execution-order player-ids->registers))))
+(defn execute-registers-for-turn
+  [state turn]
+  (reduce execute-register-number state (registers-by-execution-order (registers-for-turn turn))))
+
+(defn execute-turn
+  [game turn]
+  {:pre [((every-pred :players :board :id :turns :program-deck) (:state game))]}
+  (-> game
+      (assoc-in [:state :turns (turn-number turn)] turn)
+      (update-in [:state] execute-registers-for-turn turn)))
 
 (defn player-state-fn
   [{:keys [board]}]
@@ -409,7 +390,7 @@
     (reduce repair-robot-on-square state repair-squares)))
 
 (defn random-adjacent-square
-  [{:keys [board players] :as b} [x y]]
+  [{:keys [board players]} [x y]]
   (let [all-adj-squares (->>
                           (concat (map vector (range (dec x) (inc (inc x))) (repeat (dec y)))
                                      [[(dec x) y] [(inc x) y]]
@@ -443,10 +424,55 @@
                   (repair-robots-on-repair-squares)
                   (respawn-destroyed-robots))))
 
+(defn num-cards-for-this-turn
+  [{:keys [robot] :as player}]
+  (- 9 (:damage robot)))
+
+(defn num-registers-for-this-turn
+  [{:keys [robot] :as player}]
+  (let [cards-for-turn (num-cards-for-this-turn player)]
+    (if (< 4 cards-for-turn) 5 cards-for-turn)))
+
+(defn cut-and-deal-cards
+  [players deck]
+  (:players
+    (reduce (fn [{:keys [remaining-deck players] :as r} player]
+              (let [cards-due (num-cards-for-this-turn player)]
+                (assoc r :remaining-deck (drop cards-due remaining-deck)
+                         :players (conj players (assoc player :dealt (take cards-due remaining-deck))))))
+            {:deck deck :players []} players)))
+
+(defn registers-for-turn-by-player
+  [{:keys [players registers timed-out] :as turn}]
+  (zipmap players (map (comp registers :id) players)))
+
+(defn registers-for-players
+  [{:keys [players]}]
+  (zipmap players (map num-registers-for-this-turn players)))
+
+(defrecord RRGameTurnState [turn-number players shuffled-deck]
+  RRGameTurn
+  (turn-number [_] turn-number)
+  (deal-cards-to-players [_] (cut-and-deal-cards players shuffled-deck))
+  (player-enters-registers [turn player-id registers powering-down-next-turn?]
+    (cond-> (assoc-in turn [:registers player-id] registers)
+            powering-down-next-turn? (update-in [:powering-down] (comp set conj) player-id)))
+  (player-timedout [turn player-id] (update-in turn [:timed-out] (comp set conj) player-id))
+  (registers-for-turn [turn] (registers-for-turn-by-player turn)) ;; => map from player -> []
+  (registers-required-for-turn [turn] (registers-for-players turn)) ;; => map from player -> number
+  (players-powering-down-next-turn [turn] (map (partial player-by-id turn) (:powering-down turn))))
+
+(defn new-game-turn
+  [{:keys [state]}]
+  (->RRGameTurnState (inc (count (:turns state)))
+                     (:players state)
+                     (shuffle (:program-deck state))))
+
+
 (defrecord RRGameState [state]
   RRGame
-  (start-next-turn [game] (update-in game [:state] start-next-turn*))
-  (complete-registers [game player-id->registers] (execute-each-register game player-id->registers))
+  (start-next-turn [game] (new-game-turn (:state game)))
+  (complete-turn [game turn] (execute-turn game turn))
   (players  [game] (get-in game [:state :players]))
   (clean-up [game player-commands] (execute-clean-up game player-commands))
   (is-game-over? [game]))
@@ -493,9 +519,6 @@
     (let [[max-x max-y] (board-size board)]
       (when (and  ((set (range 0 max-x)) x) ((set (range 0 max-y)) y))
         (nth (nth board-squares y) x))))
-  (move-robot [board [x y] all-robots {:keys [type value]}]
-    ;; TODO
-    )
   (docking-bay-position [board num] (first (squares-matching board #(= (:docking-bay %) num)))))
 
 (s/fdef RRSeqBoard
@@ -552,7 +575,7 @@
               :lives            4
               :damage           0
               :flags            #{}
-              :locked-registers #{}})))
+              :locked-registers []})))
 
 (defn player-with-game-id
   [player]
@@ -569,6 +592,10 @@
        :turns        []})))
 
 ;; TODO:
-;; - Lock registers for players
+;; - Locked registers for players
 ;; - powering down
-;; -
+;; - timed out player surplus cards passed to next player
+;; - player cheats with cards (cards not dealt) lose life and move back to archive-marker
+;; - start new turn -> deal cards
+;; - game message log
+;; - start test harness by Monday 6th Oct - includes the game engine/driver/controller
