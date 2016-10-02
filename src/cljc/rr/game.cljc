@@ -13,7 +13,7 @@
 (defprotocol RRGame
   (start-next-turn [game]) ;; => returns a RRGameTurn
   (complete-turn [game turn])
-  (clean-up [game player-commands])
+  (clean-up [game turn player-commands])
   (players  [game])
   (is-game-over? [game]))
 
@@ -344,8 +344,8 @@
 
 (defn registers-by-execution-order
   [player-ids->registers]
-  (reduce-kv (fn [registers {:keys [id] :as player} rs]
-               (let [r-by-idx (map-indexed #(array-map %1 [[id %2]]) rs)]
+  (reduce-kv (fn [registers player-id rs]
+               (let [r-by-idx (map-indexed #(array-map %1 [[player-id %2]]) rs)]
                  (apply merge-with (comp vec concat) registers r-by-idx)))
              {} player-ids->registers))
 
@@ -417,13 +417,6 @@
   [state]
   (reduce respawn state (filter #(= :destroyed (get-in % [:robot :state])) (:players state))))
 
-(defn execute-clean-up
-  [{:keys [state] :as game} player-commands]
-  (assoc game :state
-              (-> state
-                  (repair-robots-on-repair-squares)
-                  (respawn-destroyed-robots))))
-
 (defn num-cards-for-this-turn
   [{:keys [robot] :as player}]
   (- 9 (:damage robot)))
@@ -432,6 +425,34 @@
   [{:keys [robot] :as player}]
   (let [cards-for-turn (num-cards-for-this-turn player)]
     (if (< 4 cards-for-turn) 5 cards-for-turn)))
+
+(defn calculate-locked-registers
+  [locked-registers player-registers-for-turn num-registers-for-next-turn]
+  (take (- 5 num-registers-for-next-turn)
+        (concat locked-registers (reverse player-registers-for-turn))))
+
+(defn lock-player-registers
+  [state turn]
+  (let [damaged-players (->> (:players state)
+                             (map #(assoc % :num-registers (num-registers-for-this-turn %)))
+                             (filter #(not= 5 (:num-registers %))))]
+    (reduce (fn [state {:keys [id] :as damaged-player}]
+              (let [registers (-> turn (registers-for-turn) (get id))]
+                (transform (player-robot-path id)
+                           #(update % :locked-registers
+                                    calculate-locked-registers
+                                    registers
+                                    (:num-registers damaged-player))
+                           state)))
+            state damaged-players)))
+
+(defn execute-clean-up
+  [{:keys [state] :as game} turn player-commands]
+  (assoc game :state
+              (-> state
+                  (repair-robots-on-repair-squares)
+                  (respawn-destroyed-robots)
+                  (lock-player-registers turn))))
 
 (defn cut-and-deal-cards
   [players deck]
@@ -442,9 +463,6 @@
                          :players (conj players (assoc player :dealt (take cards-due remaining-deck))))))
             {:deck deck :players []} players)))
 
-(defn registers-for-turn-by-player
-  [{:keys [players registers timed-out] :as turn}]
-  (zipmap players (map (comp registers :id) players)))
 
 (defn registers-for-players
   [{:keys [players]}]
@@ -458,7 +476,7 @@
     (cond-> (assoc-in turn [:registers player-id] registers)
             powering-down-next-turn? (update-in [:powering-down] (comp set conj) player-id)))
   (player-timedout [turn player-id] (update-in turn [:timed-out] (comp set conj) player-id))
-  (registers-for-turn [turn] (registers-for-turn-by-player turn)) ;; => map from player -> []
+  (registers-for-turn [turn] (:registers turn)) ;; => map from player -> []
   (registers-required-for-turn [turn] (registers-for-players turn)) ;; => map from player -> number
   (players-powering-down-next-turn [turn] (map (partial player-by-id turn) (:powering-down turn))))
 
@@ -474,7 +492,7 @@
   (start-next-turn [game] (new-game-turn (:state game)))
   (complete-turn [game turn] (execute-turn game turn))
   (players  [game] (get-in game [:state :players]))
-  (clean-up [game player-commands] (execute-clean-up game player-commands))
+  (clean-up [game turn player-commands] (execute-clean-up game turn player-commands))
   (is-game-over? [game]))
 
 ;; program card deck

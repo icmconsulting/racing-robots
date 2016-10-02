@@ -13,7 +13,7 @@
       (turn-number [turn] turn-number)
       (deal-cards-to-players [turn])
       (player-timedout [turn player-id])
-      (registers-for-turn [turn] (zipmap (map (fn [id] {:id id}) (keys registers)) (vals registers)))
+      (registers-for-turn [turn] registers)
       (players-powering-down-next-turn [turn]))))
 
 (def t turn-with-registers)
@@ -463,19 +463,21 @@
         (is (= 5 (player-damage base-game 1)))))
 
     (testing "Robot on repair square at clean-up loses a damage token"
-      (let [base-game (-> base-game
+      (let [turn (t {player1-id [{:type :move :value 2 :priority 100}
+                                 {:type :move :value 2 :priority 100}]})
+            base-game (-> base-game
                           (assoc-in [:state :players 0 :robot :damage] 5)
-                          (complete-turn (t {player1-id [{:type :move :value 2 :priority 100}
-                                                         {:type :move :value 2 :priority 100}]}))
-                          (clean-up {}))]
+                          (complete-turn turn)
+                          (clean-up turn {}))]
         (is (= 4 (player-damage base-game 1)))))
 
     (testing "Robot on repair square can't reduce their damage tokens below 0"
-      (let [base-game (-> base-game
+      (let [turn (t {player1-id [{:type :move :value 2 :priority 100}
+                                 {:type :move :value 2 :priority 100}]})
+            base-game (-> base-game
                           (assoc-in [:state :players 0 :robot :damage] 0)
-                          (complete-turn (t {player1-id [{:type :move :value 2 :priority 100}
-                                                         {:type :move :value 2 :priority 100}]}))
-                          (clean-up {}))]
+                          (complete-turn turn)
+                          (clean-up turn {}))]
         (is (zero? (player-damage base-game 1)))))))
 
 (deftest destroyed-robots
@@ -497,7 +499,7 @@
           (is (nil? (player-direction base-game 1))))
 
         (testing "Is returned to the game during the clean up phase at their archive marker, loses a life, and is reset to 2 damage"
-          (let [base-game (clean-up base-game {})]
+          (let [base-game (clean-up base-game {} {})]
             (is (= [0 4] (player-position base-game 1)))
             (is (= 3 (player-lives base-game 1)))
             (is (= 2 (player-damage base-game 1)))))
@@ -506,7 +508,7 @@
                   to the player's archive marker"
           (let [base-game (-> base-game
                               (assoc-in [:state :players 1 :robot :position] [0 4])
-                              (clean-up {}))]
+                              (clean-up {} {}))]
             (is (not= (player-position base-game 1) (player-position base-game 2)))
             (is (adjacent-to? [0 4] (player-position base-game 1)))))
 
@@ -516,12 +518,11 @@
                               (assoc-in [:state :players 1 :robot :position] [0 4])
                               (assoc-in [:state :players 2 :robot :position]
                                         (random-adjacent-square (:state base-game) [0 4]))
-                              (clean-up {}))]
+                              (clean-up {} {}))]
             (is (not= (player-position base-game 1) (player-position base-game 2)))
             (is (not= (player-position base-game 1) (player-position base-game 3))))))
 
-      (testing "Robot can't respawn onto a pit"
-        (is (= 1 2)))
+      (testing "Robot can't respawn onto a pit" (is (= 1 2))) ;;TODO
 
       (testing "Multiple robots respawning"
         (let [base-game (-> base-game
@@ -531,7 +532,7 @@
             (let [cleaned-up-game (-> base-game
                                       (assoc-in [:state :players 0 :robot :archive-marker] [0 0])
                                       (assoc-in [:state :players 1 :robot :archive-marker] [0 0])
-                                      (clean-up {}))]
+                                      (clean-up {} {}))]
               (is (not= (player-position cleaned-up-game 1) (player-position cleaned-up-game 2))))))))))
 
 (deftest robots-with-locked-registers
@@ -540,40 +541,120 @@
         player2-id (get-in base-game [:state :players 1 :id])]
     (testing "At the end of the turn, robot with"
       (testing "0 - 4 damage has no locked registers"
-        (let [base-game (-> base-game
+        (let [turn (t {player1-id [{:type :move :value 2 :priority 100}]
+                        player2-id [{:type :move :value 2 :priority 110}]})
+              base-game (-> base-game
                             (update-in [:state :players 0 :robot] merge {:damage 0})
                             (update-in [:state :players 1 :robot] merge {:damage 4})
-                            (complete-turn (t {player1-id [{:type :move :value 2 :priority 100}]
-                                               player2-id [{:type :move :value 2 :priority 110}]}))
-                            (clean-up {}))]
+                            (complete-turn turn)
+                            (clean-up turn {}))]
           (is (empty? (player-locked-registers base-game 1)))
           (is (empty? (player-locked-registers base-game 2)))))
 
+
       (testing "5 damage has register 5 locked"
-        (let [base-game (-> base-game
-                            (update-in [:state :players 0 :robot] merge {:damage 0})
-                            (complete-turn (t {player1-id [{:type :move :value 2 :priority 100}
-                                                           {:type :move :value 1 :priority 100}
-                                                           {:type :move :value 3 :priority 100}
-                                                           {:type :move :value 2 :priority 100}
-                                                           {:type :move :value 1 :priority 500}]}))
-                            (clean-up {}))]
+        (let [turn (t {player1-id [{:type :move :value 2 :priority 100}
+                                    {:type :move :value 1 :priority 100}
+                                    {:type :move :value 3 :priority 100}
+                                    {:type :move :value 2 :priority 100}
+                                    {:type :move :value 1 :priority 500}]})
+              base-game (-> base-game
+                            (update-in [:state :players 0 :robot] merge {:damage 5})
+                            (complete-turn turn)
+                            (clean-up turn {}))]
           (is (= [{:type :move :value 1 :priority 500}] (player-locked-registers base-game 1)))))
+
       (testing "6 damage has registers 4,5 locked"
+        (let [turn (t {player1-id [{:type :move :value 2 :priority 100}
+                                   {:type :move :value 1 :priority 100}
+                                   {:type :move :value 3 :priority 100}
+                                   {:type :move :value 2 :priority 400}
+                                   {:type :move :value 1 :priority 500}]})
+              base-game (-> base-game
+                            (update-in [:state :players 0 :robot] merge {:damage 6})
+                            (complete-turn turn)
+                            (clean-up turn {}))]
+          (is (= [{:type :move :value 1 :priority 500}
+                  {:type :move :value 2 :priority 400}]
+                 (player-locked-registers base-game 1)))))
 
-        )
       (testing "7 damage has registers 3,4,5 locked"
+        (let [turn (t {player1-id [{:type :move :value 2 :priority 100}
+                                   {:type :move :value 1 :priority 100}
+                                   {:type :move :value 3 :priority 300}
+                                   {:type :move :value 2 :priority 400}
+                                   {:type :move :value 1 :priority 500}]})
+              base-game (-> base-game
+                            (update-in [:state :players 0 :robot] merge {:damage 7})
+                            (complete-turn turn)
+                            (clean-up turn {}))]
+          (is (= [{:type :move :value 1 :priority 500}
+                  {:type :move :value 2 :priority 400}
+                  {:type :move :value 3 :priority 300}]
+                 (player-locked-registers base-game 1)))))
 
-        )
       (testing "8 damage has registers 2,3,4,5 locked"
+        (let [turn (t {player1-id [{:type :move :value 2 :priority 100}
+                                   {:type :move :value 1 :priority 200}
+                                   {:type :move :value 3 :priority 300}
+                                   {:type :move :value 2 :priority 400}
+                                   {:type :move :value 1 :priority 500}]})
+              base-game (-> base-game
+                            (update-in [:state :players 0 :robot] merge {:damage 8})
+                            (complete-turn turn)
+                            (clean-up turn {}))]
+          (is (= [{:type :move :value 1 :priority 500}
+                  {:type :move :value 2 :priority 400}
+                  {:type :move :value 3 :priority 300}
+                  {:type :move :value 1 :priority 200}]
+                 (player-locked-registers base-game 1)))))
 
-        )
       (testing "9 damage has registers 1,2,3,4,5 locked"
+        (let [turn (t {player1-id [{:type :move :value 2 :priority 100}
+                                   {:type :move :value 1 :priority 200}
+                                   {:type :move :value 3 :priority 300}
+                                   {:type :move :value 2 :priority 400}
+                                   {:type :move :value 1 :priority 500}]})
+              base-game (-> base-game
+                            (update-in [:state :players 0 :robot] merge {:damage 9})
+                            (complete-turn turn)
+                            (clean-up turn {}))]
+          (is (= [{:type :move :value 1 :priority 500}
+                  {:type :move :value 2 :priority 400}
+                  {:type :move :value 3 :priority 300}
+                  {:type :move :value 1 :priority 200}
+                  {:type :move :value 2 :priority 100}]
+                 (player-locked-registers base-game 1))))))
 
-        )
-      )
+    (testing "Locked registers are additive"
+      (let [turn (t {player1-id [{:type :move :value 2 :priority 100}
+                                 {:type :move :value 1 :priority 200}
+                                 {:type :move :value 3 :priority 300}]})
+            base-game (-> base-game
+                          (update-in [:state :players 0 :robot] merge {:damage 7 ;; robot got damaged this turn
+                                                                       :locked-registers [{:type :move :value 1 :priority 500}
+                                                                                          {:type :move :value 2 :priority 400}]})
+                          (complete-turn turn)
+                          (clean-up turn {}))]
+        (is (= [{:type :move :value 1 :priority 500}
+                {:type :move :value 2 :priority 400}
+                {:type :move :value 3 :priority 300}]
+               (player-locked-registers base-game 1)))))
+
+    (testing "Robot that heals has locked registers removed"
+      (let [turn (t {player1-id [{:type :move :value 2 :priority 100}
+                                 {:type :move :value 1 :priority 200}
+                                 {:type :move :value 3 :priority 300}]})
+            base-game (-> base-game
+                          (update-in [:state :players 0 :robot] merge {:damage 5
+                                                                       :locked-registers [{:type :move :value 1 :priority 500}
+                                                                                          {:type :move :value 2 :priority 400}]})
+                          (complete-turn turn)
+                          (clean-up turn {}))]
+        (is (= [{:type :move :value 1 :priority 500}]
+               (player-locked-registers base-game 1)))))
 
     (testing "The locked registers are applied to the list of registers for the robot")
 
-    (testing "Robot that heals has locked registers removed")
+
     ))
