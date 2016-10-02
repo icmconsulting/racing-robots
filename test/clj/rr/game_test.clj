@@ -654,7 +654,13 @@
         (is (= [{:type :move :value 1 :priority 500}]
                (player-locked-registers base-game 1)))))
 
-    (testing "The locked registers are applied to the list of registers for the robot")
-
-
-    ))
+    (testing "The locked registers are applied to the list of registers for the robot"
+      (let [turn (t {player1-id [{:type :move :value 1 :priority 100}
+                                 {:type :move :value 1 :priority 200}
+                                 {:type :move :value 1 :priority 300}]})
+            base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :locked-registers] [{:type :rotate :value :right :priority 500}
+                                                                                  {:type :move :value 1 :priority 400}])
+                          (complete-turn turn))]
+        (is (=  [4 11] (player-position base-game 1)))
+        (is (=  :east (player-direction base-game 1)))))))

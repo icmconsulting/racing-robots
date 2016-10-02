@@ -349,11 +349,21 @@
                  (apply merge-with (comp vec concat) registers r-by-idx)))
              {} player-ids->registers))
 
-;;TODO: refactor execute-each-register to use the new Turn protocol
+(defn apply-locked-registers
+  [player-ids->registers state]
+  (into {}
+        (map (fn [[player-id registers]]
+               (let [{:keys [robot]} (player-by-id state player-id)]
+                 [player-id (vec (concat registers (reverse (:locked-registers robot))))]))
+             player-ids->registers)))
 
 (defn execute-registers-for-turn
   [state turn]
-  (reduce execute-register-number state (registers-by-execution-order (registers-for-turn turn))))
+  (reduce execute-register-number state
+          (-> turn
+              (registers-for-turn)
+              (apply-locked-registers state)
+              (registers-by-execution-order))))
 
 (defn execute-turn
   [game turn]
