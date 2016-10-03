@@ -481,7 +481,7 @@
                           (clean-up turn {}))]
         (is (zero? (player-damage base-game 1)))))))
 
-(deftest destroyed-robots
+(deftest destruction-of-robots
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"}] board-with-lasers)
         player1-id (get-in base-game [:state :players 0 :id])]
     (testing "Robot reaching 0 damage"
@@ -543,7 +543,7 @@
     (testing "At the end of the turn, robot with"
       (testing "0 - 4 damage has no locked registers"
         (let [turn (t {player1-id [{:type :move :value 2 :priority 100}]
-                        player2-id [{:type :move :value 2 :priority 110}]})
+                       player2-id [{:type :move :value 2 :priority 110}]})
               base-game (-> base-game
                             (update-in [:state :players 0 :robot] merge {:damage 0})
                             (update-in [:state :players 1 :robot] merge {:damage 4})
@@ -632,7 +632,7 @@
                                  {:type :move :value 1 :priority 200}
                                  {:type :move :value 3 :priority 300}]})
             base-game (-> base-game
-                          (update-in [:state :players 0 :robot] merge {:damage 7 ;; robot got damaged this turn
+                          (update-in [:state :players 0 :robot] merge {:damage           7 ;; robot got damaged this turn
                                                                        :locked-registers [{:type :move :value 1 :priority 500}
                                                                                           {:type :move :value 2 :priority 400}]})
                           (complete-turn turn)
@@ -647,7 +647,7 @@
                                  {:type :move :value 1 :priority 200}
                                  {:type :move :value 3 :priority 300}]})
             base-game (-> base-game
-                          (update-in [:state :players 0 :robot] merge {:damage 5
+                          (update-in [:state :players 0 :robot] merge {:damage           5
                                                                        :locked-registers [{:type :move :value 1 :priority 500}
                                                                                           {:type :move :value 2 :priority 400}]})
                           (complete-turn turn)
@@ -663,8 +663,8 @@
                           (assoc-in [:state :players 0 :robot :locked-registers] [{:type :rotate :value :right :priority 500}
                                                                                   {:type :move :value 1 :priority 400}])
                           (complete-turn turn))]
-        (is (=  [4 11] (player-position base-game 1)))
-        (is (=  :east (player-direction base-game 1)))))))
+        (is (= [4 11] (player-position base-game 1)))
+        (is (= :east (player-direction base-game 1)))))))
 
 (defn cards-dealt-to-player
   [player-id turn]
@@ -681,26 +681,47 @@
       (let [turn (t 0 {player1-id [{:type :move :value 1 :priority 100}]
                        player2-id [{:type :move :value 1 :priority 100}]}
                     #{(player-by-id (:state base-game) player1-id)})
-            base-game (-> base-game
-                          (assoc-in [:state :players 0 :robot :damage] 4)
-                          (complete-turn turn)
-                          (clean-up turn {}))
-            next-turn (start-next-turn base-game)]
+            game (-> base-game
+                     (assoc-in [:state :players 0 :robot :damage] 4)
+                     (complete-turn turn)
+                     (clean-up turn {}))
+            next-turn (start-next-turn game)]
 
         (testing "will not be dealt cards in that turn"
           (is (empty? (cards-dealt-to-player player1-id next-turn)))
           (is (seq (cards-dealt-to-player player2-id next-turn))))
 
         (testing "will have damage reset back to 0 at the beginning of the turn"
-          (is (zero? (player-damage (complete-turn base-game next-turn) 1))))
+          (is (zero? (player-damage (complete-turn game next-turn) 1))))
 
         (testing "will not be powered down after the clean up phase"
-          (let [base-game (-> (complete-turn base-game next-turn)
-                              (clean-up next-turn {}))]
-            (is (false? (get-in base-game [:state :players 0 :robot :powered-down?])))))
+          (let [game (-> (complete-turn game next-turn)
+                         (clean-up next-turn {}))]
+            (is (false? (get-in game [:state :players 0 :robot :powered-down?])))))
 
         (testing "during the clean up phase the player may select to power down again for the next turn"
-          (let [base-game (-> (complete-turn base-game next-turn)
-                              (clean-up next-turn {player1-id :power-down}))]
-            (is (true? (get-in base-game [:state :players 0 :robot :powered-down?])))))))))
+          (let [game (-> (complete-turn game next-turn)
+                         (clean-up next-turn {player1-id :power-down}))]
+            (is (true? (get-in game [:state :players 0 :robot :powered-down?])))))
+
+        (testing "then are destroyed, the player can override that decision"
+          (let [game (-> base-game
+                         (complete-turn turn)
+                         (update-in [:state :players 0 :robot] merge {:damage 10 :state :destroyed}))]
+
+            (testing "by selecting power-down-override"
+              (let [game (clean-up game turn {player1-id :power-down-override})]
+                (is (false? (get-in game [:state :players 0 :robot :powered-down?])))
+                (is (= 2 (player-damage game 1)))))
+
+            (testing "or ignore it and they will continue the next turn powered down"
+              (let [game (clean-up game turn {})]
+                (is (true? (get-in game [:state :players 0 :robot :powered-down?])))
+                (is (= 2 (player-damage game 1)))))
+
+            (testing "but not if they aren't destroyed"
+              (let [game (-> base-game
+                             (complete-turn turn)
+                             (clean-up turn {player1-id :power-down-override}))]
+                (is (true? (get-in game [:state :players 0 :robot :powered-down?])))))))))))
 

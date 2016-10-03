@@ -428,9 +428,13 @@
                                                         :direction (rand-nth [:west :east :north :south])
                                                         :damage    2}))))))
 
+(defn players-with-destroyed-robots
+  [state]
+  (filter #(= :destroyed (get-in % [:robot :state])) (:players state)))
+
 (defn respawn-destroyed-robots
   [state]
-  (reduce respawn state (filter #(= :destroyed (get-in % [:robot :state])) (:players state))))
+  (reduce respawn state (players-with-destroyed-robots state)))
 
 (defn num-cards-for-this-turn
   [{:keys [robot] :as player}]
@@ -467,9 +471,13 @@
   [state turn player-commands]
   (let [players-powering-down (players-powering-down-next-turn turn)
         player-ids (set (concat (map :id players-powering-down)
-                                (map key (filter #(= :power-down (val %)) player-commands))))]
+                                (map key (filter #(= :power-down (val %)) player-commands))))
+        players-overriding (set (map key (filter #(= :power-down-override (val %)) player-commands)))
+        robots-destroyed (set (map :id (players-with-destroyed-robots state)))]
     (transform [:players ALL (collect-one :id) :robot]
-               #(assoc %2 :powered-down? (some? (player-ids %1)))
+               #(assoc %2 :powered-down? (if (and (robots-destroyed %1) (players-overriding %1))
+                                           false
+                                           (some? (player-ids %1))))
                state)))
 
 (defn execute-clean-up
@@ -648,7 +656,6 @@
        :turns        {}})))
 
 ;; TODO:
-;; - powering down
 ;; - timed out player surplus cards passed to next player
 ;; - player cheats with cards (cards not dealt) lose life and move back to archive-marker
 ;; - start new turn -> deal cards
