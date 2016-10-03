@@ -81,10 +81,10 @@
   {:pre [(vector? to) (keyword? direction)]}
   (if-let [new-square (square-at board to)]
     (nil? ((:walls new-square #{})
-            ({:west  :east
-              :north :south
-              :east  :west
-              :south :north} direction)))
+           ({:west  :east
+             :north :south
+             :east  :west
+             :south :north} direction)))
     true)) ;; can always move off the board
 
 (defn is-move-possible?
@@ -144,8 +144,8 @@
 (defmethod execute-player-register* :rotate
   [state [player-id {:keys [value]}]]
   (transform [:players ALL (if-path [:id (partial = player-id)] [:robot :direction])]
-                     (get rotate-delta value)
-                     state))
+             (get rotate-delta value)
+             state))
 
 (defn on-belt?
   [board position]
@@ -294,7 +294,7 @@
 
 (defn fire-robot-lasers [{:keys [players board] :as state}]
   (let [robot-lasers (keep (comp (partial robot->laser board) :robot)
-                                  (filter (comp :position :robot) players))]
+                           (filter (comp :position :robot) players))]
     (reduce fire-laser state robot-lasers)))
 
 (defn apply-touched-flag
@@ -408,8 +408,8 @@
   [{:keys [board players]} [x y]]
   (let [all-adj-squares (->>
                           (concat (map vector (range (dec x) (inc (inc x))) (repeat (dec y)))
-                                     [[(dec x) y] [(inc x) y]]
-                                     (map vector (range (dec x) (inc (inc x))) (repeat (inc y))))
+                                  [[(dec x) y] [(inc x) y]]
+                                  (map vector (range (dec x) (inc (inc x))) (repeat (inc y))))
                           (filter (partial square-at board))
                           (set))
         all-player-squares (set (keep (comp :position :robot) players))]
@@ -464,9 +464,10 @@
             state damaged-players)))
 
 (defn power-down-players
-  [state turn]
+  [state turn player-commands]
   (let [players-powering-down (players-powering-down-next-turn turn)
-        player-ids (set (map :id players-powering-down))]
+        player-ids (set (concat (map :id players-powering-down)
+                                (map key (filter #(= :power-down (val %)) player-commands))))]
     (transform [:players ALL (collect-one :id) :robot]
                #(assoc %2 :powered-down? (some? (player-ids %1)))
                state)))
@@ -478,7 +479,7 @@
                   (repair-robots-on-repair-squares)
                   (respawn-destroyed-robots)
                   (lock-player-registers turn)
-                  (power-down-players turn))))
+                  (power-down-players turn player-commands))))
 
 (defn cut-and-deal-cards
   [players deck]

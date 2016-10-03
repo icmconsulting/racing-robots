@@ -555,10 +555,10 @@
 
       (testing "5 damage has register 5 locked"
         (let [turn (t {player1-id [{:type :move :value 2 :priority 100}
-                                    {:type :move :value 1 :priority 100}
-                                    {:type :move :value 3 :priority 100}
-                                    {:type :move :value 2 :priority 100}
-                                    {:type :move :value 1 :priority 500}]})
+                                   {:type :move :value 1 :priority 100}
+                                   {:type :move :value 3 :priority 100}
+                                   {:type :move :value 2 :priority 100}
+                                   {:type :move :value 1 :priority 500}]})
               base-game (-> base-game
                             (update-in [:state :players 0 :robot] merge {:damage 5})
                             (complete-turn turn)
@@ -692,7 +692,15 @@
           (is (seq (cards-dealt-to-player player2-id next-turn))))
 
         (testing "will have damage reset back to 0 at the beginning of the turn"
-          (is (zero? (player-damage (complete-turn base-game next-turn) 1)))))
+          (is (zero? (player-damage (complete-turn base-game next-turn) 1))))
 
-      )))
+        (testing "will not be powered down after the clean up phase"
+          (let [base-game (-> (complete-turn base-game next-turn)
+                              (clean-up next-turn {}))]
+            (is (false? (get-in base-game [:state :players 0 :robot :powered-down?])))))
+
+        (testing "during the clean up phase the player may select to power down again for the next turn"
+          (let [base-game (-> (complete-turn base-game next-turn)
+                              (clean-up next-turn {player1-id :power-down}))]
+            (is (true? (get-in base-game [:state :players 0 :robot :powered-down?])))))))))
 
