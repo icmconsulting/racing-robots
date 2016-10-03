@@ -8,13 +8,14 @@
 
 (defn turn-with-registers
   ([registers] (turn-with-registers 0 registers))
-  ([turn-number registers]
-    (reify RRGameTurn
-      (turn-number [turn] turn-number)
-      (deal-cards-to-players [turn])
-      (player-timedout [turn player-id])
-      (registers-for-turn [turn] registers)
-      (players-powering-down-next-turn [turn]))))
+  ([turn-number registers] (turn-with-registers turn-number registers #{}))
+  ([turn-number registers powering-down]
+   (reify RRGameTurn
+     (turn-number [turn] turn-number)
+     (deal-cards-to-players [turn])
+     (player-timedout [turn player-id])
+     (registers-for-turn [turn] registers)
+     (players-powering-down-next-turn [turn] powering-down))))
 
 (def t turn-with-registers)
 
@@ -499,7 +500,7 @@
           (is (nil? (player-direction base-game 1))))
 
         (testing "Is returned to the game during the clean up phase at their archive marker, loses a life, and is reset to 2 damage"
-          (let [base-game (clean-up base-game {} {})]
+          (let [base-game (clean-up base-game (start-next-turn base-game) {})]
             (is (= [0 4] (player-position base-game 1)))
             (is (= 3 (player-lives base-game 1)))
             (is (= 2 (player-damage base-game 1)))))
@@ -508,7 +509,7 @@
                   to the player's archive marker"
           (let [base-game (-> base-game
                               (assoc-in [:state :players 1 :robot :position] [0 4])
-                              (clean-up {} {}))]
+                              (clean-up (start-next-turn base-game) {}))]
             (is (not= (player-position base-game 1) (player-position base-game 2)))
             (is (adjacent-to? [0 4] (player-position base-game 1)))))
 
@@ -518,7 +519,7 @@
                               (assoc-in [:state :players 1 :robot :position] [0 4])
                               (assoc-in [:state :players 2 :robot :position]
                                         (random-adjacent-square (:state base-game) [0 4]))
-                              (clean-up {} {}))]
+                              (clean-up (start-next-turn base-game) {}))]
             (is (not= (player-position base-game 1) (player-position base-game 2)))
             (is (not= (player-position base-game 1) (player-position base-game 3))))))
 
@@ -532,7 +533,7 @@
             (let [cleaned-up-game (-> base-game
                                       (assoc-in [:state :players 0 :robot :archive-marker] [0 0])
                                       (assoc-in [:state :players 1 :robot :archive-marker] [0 0])
-                                      (clean-up {} {}))]
+                                      (clean-up (start-next-turn base-game) {}))]
               (is (not= (player-position cleaned-up-game 1) (player-position cleaned-up-game 2))))))))))
 
 (deftest robots-with-locked-registers
@@ -664,3 +665,34 @@
                           (complete-turn turn))]
         (is (=  [4 11] (player-position base-game 1)))
         (is (=  :east (player-direction base-game 1)))))))
+
+(defn cards-dealt-to-player
+  [player-id turn]
+  (:dealt (first
+            (filter #(= player-id (:id %))
+                    (deal-cards-to-players turn)))))
+
+(deftest robot-powers-down
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] blank-board)
+        player1-id (get-in base-game [:state :players 0 :id])
+        player2-id (get-in base-game [:state :players 1 :id])]
+
+    (testing "Player that commands that they will power down in the next turn"
+      (let [turn (t 0 {player1-id [{:type :move :value 1 :priority 100}]
+                       player2-id [{:type :move :value 1 :priority 100}]}
+                    #{(player-by-id (:state base-game) player1-id)})
+            base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :damage] 4)
+                          (complete-turn turn)
+                          (clean-up turn {}))
+            next-turn (start-next-turn base-game)]
+
+        (testing "will not be dealt cards in that turn"
+          (is (empty? (cards-dealt-to-player player1-id next-turn)))
+          (is (seq (cards-dealt-to-player player2-id next-turn))))
+
+        (testing "will have damage reset back to 0 at the beginning of the turn"
+          (is (zero? (player-damage (complete-turn base-game next-turn) 1)))))
+
+      )))
+

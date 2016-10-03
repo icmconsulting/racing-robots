@@ -365,11 +365,16 @@
               (apply-locked-registers state)
               (registers-by-execution-order))))
 
+(defn heal-powered-down-robots
+  [game]
+  (setval [:state :players ALL (if-path [:robot :powered-down? true?] [:robot :damage])] 0 game))
+
 (defn execute-turn
   [game turn]
   {:pre [((every-pred :players :board :id :turns :program-deck) (:state game))]}
   (-> game
       (assoc-in [:state :turns (turn-number turn)] turn)
+      (heal-powered-down-robots)
       (update-in [:state] execute-registers-for-turn turn)))
 
 (defn player-state-fn
@@ -429,7 +434,9 @@
 
 (defn num-cards-for-this-turn
   [{:keys [robot] :as player}]
-  (- 9 (:damage robot)))
+  (if (:powered-down? robot)
+    0
+    (- 9 (:damage robot))))
 
 (defn num-registers-for-this-turn
   [{:keys [robot] :as player}]
@@ -456,13 +463,22 @@
                            state)))
             state damaged-players)))
 
+(defn power-down-players
+  [state turn]
+  (let [players-powering-down (players-powering-down-next-turn turn)
+        player-ids (set (map :id players-powering-down))]
+    (transform [:players ALL (collect-one :id) :robot]
+               #(assoc %2 :powered-down? (some? (player-ids %1)))
+               state)))
+
 (defn execute-clean-up
   [{:keys [state] :as game} turn player-commands]
   (assoc game :state
               (-> state
                   (repair-robots-on-repair-squares)
                   (respawn-destroyed-robots)
-                  (lock-player-registers turn))))
+                  (lock-player-registers turn)
+                  (power-down-players turn))))
 
 (defn cut-and-deal-cards
   [players deck]
@@ -471,7 +487,7 @@
               (let [cards-due (num-cards-for-this-turn player)]
                 (assoc r :remaining-deck (drop cards-due remaining-deck)
                          :players (conj players (assoc player :dealt (take cards-due remaining-deck))))))
-            {:deck deck :players []} players)))
+            {:remaining-deck deck :players []} players)))
 
 
 (defn registers-for-players
@@ -490,12 +506,23 @@
   (registers-required-for-turn [turn] (registers-for-players turn)) ;; => map from player -> number
   (players-powering-down-next-turn [turn] (map (partial player-by-id turn) (:powering-down turn))))
 
-(defn new-game-turn
-  [{:keys [state]}]
-  (->RRGameTurnState (inc (count (:turns state)))
-                     (:players state)
-                     (shuffle (:program-deck state))))
+(def null-previous-turn
+  "Represents the turn before the first turn of the game"
+  (reify RRGameTurn
+    (turn-number [_] nil)
+    (deal-cards-to-players [_] nil)
+    (player-enters-registers [turn _ _ _] turn)
+    (player-timedout [turn _] turn)
+    (registers-for-turn [_] {})
+    (registers-required-for-turn [_] {})
+    (players-powering-down-next-turn [_] {})))
 
+(defn new-game-turn
+  [state]
+  (let [new-turn-number (inc (count (:turns state)))]
+    (->RRGameTurnState new-turn-number
+                       (:players state)
+                       (shuffle (:program-deck state)))))
 
 (defrecord RRGameState [state]
   RRGame
@@ -617,10 +644,9 @@
        :program-deck program-deck
        :board        board
        :players      (vec (map-indexed (comp player-with-game-id (partial player-with-robot board)) (shuffle players)))
-       :turns        []})))
+       :turns        {}})))
 
 ;; TODO:
-;; - Locked registers for players
 ;; - powering down
 ;; - timed out player surplus cards passed to next player
 ;; - player cheats with cards (cards not dealt) lose life and move back to archive-marker
