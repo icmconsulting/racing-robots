@@ -8,3 +8,5 @@
 * After destroyed, can't take any more damage - just removed from the board
 * No pusher squares(?)
 * If powered down, can only be choose to continue to be powered down during clean up phase
+* A draw occurs if:
+    - The last robots alive are destroyed on the same turn AND have both reached the same number of flags

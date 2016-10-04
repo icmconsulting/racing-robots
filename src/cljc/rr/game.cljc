@@ -19,7 +19,7 @@
   (complete-turn [game turn])
   (clean-up [game turn player-commands])
   (players  [game])
-  (is-game-over? [game]))
+  (victory-status [game])) ;; => [status, players-in-order-of-victory-status], status -> :active, :game-over
 
 (defprotocol RRGameTurn
   (turn-number [turn])
@@ -489,9 +489,14 @@
             true (assoc :locked-registers new-locked-registers)
             (not= old-locked-registers new-locked-registers) (add-robot-event :registers/locked-register-change old-locked-registers))))
 
+(defn player-still-active?
+  [player]
+  (not= :dead (:state player)))
+
 (defn lock-player-registers
   [state turn]
   (let [damaged-players (->> (:players state)
+                             (filter player-still-active?)
                              (map #(assoc % :num-registers (num-registers-for-this-turn %)))
                              (filter #(not= 5 (:num-registers %))))]
     (reduce (fn [state {:keys [id] :as damaged-player}]
@@ -504,7 +509,7 @@
 (defn robot-maybe-powering-down
   [player-ids-powering-down players-with-robots-destroyed players-overriding {:keys [id]} robot]
   (let [[powering-down? event-type] (if (and (players-with-robots-destroyed id) (players-overriding id))
-                                      [false :power-down/overriding]
+                                      [false :power-down/overridden]
                                       [(some? (player-ids-powering-down id)) :power-down/start])]
     (cond-> robot
             true (assoc :powered-down? powering-down?)
@@ -517,7 +522,7 @@
                                 (map key (filter #(= :power-down (val %)) player-commands))))
         players-overriding (set (map key (filter #(= :power-down-override (val %)) player-commands)))
         robots-destroyed (set (map :id (players-with-destroyed-robots state)))]
-    (transform [:players ALL VAL :robot]
+    (transform [:players ALL player-still-active? VAL :robot]
                (partial robot-maybe-powering-down player-ids robots-destroyed players-overriding)
                state)))
 
@@ -529,10 +534,6 @@
                   (respawn-destroyed-robots)
                   (lock-player-registers turn)
                   (power-down-players turn player-commands))))
-
-(defn player-still-active?
-  [player]
-  (not= :dead (:state player)))
 
 (defn cut-and-deal-cards
   [players deck]
@@ -560,12 +561,34 @@
   (registers-required-for-turn [turn] (registers-for-players turn)) ;; => map from player -> number
   (players-powering-down-next-turn [turn] (map (partial player-by-id turn) (:powering-down turn))))
 
+(defn calculate-victory-status
+  [state]
+  (let [{:keys [board players]} state
+        active-players (filter player-still-active? players)
+        flags-on-board (map (comp :flag (partial square-at board)) (squares-matching board :flag))
+        target-flag (when (seq flags-on-board) (reduce max flags-on-board))
+        player-has-target-flag? #((get-in % [:robot :flags]) target-flag)]
+    (cond
+      (and target-flag (seq (filter player-has-target-flag? players))) ;; someone has landed on the last flag
+      [:game-over (map #(assoc % :victory-state (if (player-has-target-flag? %) :winner :loser)) players)]
+
+      (= 1 (count active-players))
+      [:game-over (map #(assoc % :victory-state (if (player-still-active? %) :winner :loser)) players)]
+
+      (empty? active-players)
+      [:game-over (let [flag-count-fn (comp count :flags :robot)
+                        max-flags (apply max (map flag-count-fn players))]
+                    (map #(assoc % :victory-state (if (= max-flags (flag-count-fn %)) :winner :loser)) players))]
+
+      :else [:active players])))
+
 (defn new-game-turn
   [state]
-  (let [new-turn-number (inc (count (:turns state)))]
-    (->RRGameTurnState new-turn-number
-                       (vec (filter player-still-active? (:players state)))
-                       (shuffle (:program-deck state)))))
+  (when-not (= :game-over (first (calculate-victory-status state)))
+    (let [new-turn-number (inc (count (:turns state)))]
+      (->RRGameTurnState new-turn-number
+                         (vec (filter player-still-active? (:players state)))
+                         (shuffle (:program-deck state))))))
 
 (defrecord RRGameState [state]
   RRGame
@@ -573,7 +596,7 @@
   (complete-turn [game turn] (execute-turn game turn))
   (players  [game] (get-in game [:state :players]))
   (clean-up [game turn player-commands] (execute-clean-up game turn player-commands))
-  (is-game-over? [game]))
+  (victory-status [game] (calculate-victory-status (:state game))))
 
 ;; program card deck
 (def priorities (reverse (map #(* 20 %) (range 1 19))))
@@ -695,4 +718,7 @@
 ;; - timed out player surplus cards passed to next player
 ;; - player cheats with cards (cards not dealt) lose life and move back to archive-marker
 ;; - game message log
+;; - player becomes inactive (x number of errors in game) -> player is removed from game
 ;; - start test harness by 6th Oct - includes the game engine/driver/controller
+
+;; early game victory termination - if all flags are captured, then stop executing registers... nice to have...

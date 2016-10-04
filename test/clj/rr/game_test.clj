@@ -556,7 +556,7 @@
                             (update-in [:state :players 0 :robot] merge {:damage 9 :lives  0})
                             (complete-turn turn)
                             (clean-up turn {}))]
-          (is (= :destroyed) (player-state base-game 1))
+          (is (= :destroyed (player-state base-game 1)))
           (is (empty? (cards-dealt-to-player player1-id (start-next-turn base-game)))))))))
 
 (deftest robots-with-locked-registers
@@ -742,5 +742,74 @@
                              (clean-up turn {player1-id :power-down-override}))]
                 (is (true? (get-in game [:state :players 0 :robot :powered-down?])))))))))))
 
+(deftest end-of-game
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"} {:name "player 4"}] board-with-flags)]
+    (testing "Game is over when"
+      (testing "only one player is left, and that player is the winner"
+        (let [game (-> base-game
+                       (assoc-in [:state :players 0 :state] :dead)
+                       (assoc-in [:state :players 2 :state] :dead)
+                       (assoc-in [:state :players 3 :state] :dead))
+              [game-state players] (victory-status game)]
+          (is (= :game-over game-state))
+          (is (= [:loser :winner :loser :loser] (mapv :victory-state players)))))
 
+      (testing "no players are left, but the winner is the robot who has captured the most flags"
+        (let [game (-> base-game
+                       (assoc-in [:state :players 0 :state] :dead)
+                       (update-in [:state :players 0 :robot] merge {:flags #{1}})
+                       (assoc-in [:state :players 1 :state] :dead)
+                       (update-in [:state :players 1 :robot] merge {:flags #{1}})
+                       (assoc-in [:state :players 2 :state] :dead)
+                       (update-in [:state :players 2 :robot] merge {:flags #{1 2}})
+                       (assoc-in [:state :players 3 :state] :dead)
+                       (update-in [:state :players 3 :robot] merge {:flags #{}}))
+              [game-state players] (victory-status game)]
+          (is (= :game-over game-state))
+          (is (= [:loser :loser :winner :loser] (mapv :victory-state players)))))
 
+      (testing "no players are left, but more than 1 players have captured the same amount of flags, so a tie"
+        (let [game (-> base-game
+                       (assoc-in [:state :players 0 :state] :dead)
+                       (update-in [:state :players 0 :robot] merge {:flags #{1 2}})
+                       (assoc-in [:state :players 1 :state] :dead)
+                       (update-in [:state :players 1 :robot] merge {:flags #{1 2}})
+                       (assoc-in [:state :players 2 :state] :dead)
+                       (update-in [:state :players 2 :robot] merge {:flags #{1}})
+                       (assoc-in [:state :players 3 :state] :dead)
+                       (update-in [:state :players 3 :robot] merge {:flags #{}}))
+              [game-state players] (victory-status game)]
+          (is (= :game-over game-state))
+          (is (= [:winner :winner :loser :loser] (mapv :victory-state players)))))
+
+      (testing "a single player has captured all the flags"
+        (let [game (-> base-game
+                       (update-in [:state :players 0 :robot] merge {:flags #{1 2}})
+                       (update-in [:state :players 1 :robot] merge {:flags #{1 2}})
+                       (update-in [:state :players 2 :robot] merge {:flags #{}})
+                       (update-in [:state :players 3 :robot] merge {:flags #{1 2 3}}))
+              [game-state players] (victory-status game)]
+          (is (= :game-over game-state))
+          (is (= [:loser :loser :loser :winner] (mapv :victory-state players)))))
+
+      (testing "the maximum number of turns has been reached"
+        ;;TODO - whats the maximum number of turns? how do we determine a winner in this condition?
+        )
+      )
+
+    (testing "Game is still active when no one has won yet"
+      (let [game (-> base-game
+                     (update-in [:state :players 0 :robot] merge {:flags #{1 2}})
+                     (update-in [:state :players 1 :robot] merge {:flags #{1 2}})
+                     (update-in [:state :players 2 :robot] merge {:flags #{}})
+                     (update-in [:state :players 3 :robot] merge {:flags #{1 2 }}))
+            [game-state players] (victory-status game)]
+        (is (= :active game-state))))
+
+    (testing "Can't start a new turn if the game is over"
+      (is (nil? (-> base-game
+                    (update-in [:state :players 0 :robot] merge {:flags #{1 2}})
+                    (update-in [:state :players 1 :robot] merge {:flags #{1 2}})
+                    (update-in [:state :players 2 :robot] merge {:flags #{}})
+                    (update-in [:state :players 3 :robot] merge {:flags #{1 2 3}})
+                    (start-next-turn)))))))
