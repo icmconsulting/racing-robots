@@ -481,6 +481,12 @@
                           (clean-up turn {}))]
         (is (zero? (player-damage base-game 1)))))))
 
+(defn cards-dealt-to-player
+  [player-id turn]
+  (:dealt (first
+            (filter #(= player-id (:id %))
+                    (deal-cards-to-players turn)))))
+
 (deftest destruction-of-robots
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"}] board-with-lasers)
         player1-id (get-in base-game [:state :players 0 :id])]
@@ -537,12 +543,21 @@
         (let [base-game (-> base-game
                             (update-in [:state :players 0 :robot] merge {:damage 10 :state :destroyed :direction nil :position nil})
                             (update-in [:state :players 1 :robot] merge {:damage 10 :state :destroyed :direction nil :position nil}))]
-          (testing "Respawning to the same archive marker does not meant the robots start on the same position"
+          (testing "Respawning to the same archive marker does not mean the robots start on the same position"
             (let [cleaned-up-game (-> base-game
                                       (assoc-in [:state :players 0 :robot :archive-marker] [0 0])
                                       (assoc-in [:state :players 1 :robot :archive-marker] [0 0])
                                       (clean-up (start-next-turn base-game) {}))]
-              (is (not= (player-position cleaned-up-game 1) (player-position cleaned-up-game 2))))))))))
+              (is (not= (player-position cleaned-up-game 1) (player-position cleaned-up-game 2)))))))
+
+      (testing "Dead players receive no cards"
+        (let [turn (t {player1-id [{:type :move :value 2 :priority 100}]})
+              base-game (-> base-game
+                            (update-in [:state :players 0 :robot] merge {:damage 9 :lives  0})
+                            (complete-turn turn)
+                            (clean-up turn {}))]
+          (is (= :destroyed) (player-state base-game 1))
+          (is (empty? (cards-dealt-to-player player1-id (start-next-turn base-game)))))))))
 
 (deftest robots-with-locked-registers
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] blank-board)
@@ -674,12 +689,6 @@
         (is (= [4 11] (player-position base-game 1)))
         (is (= :east (player-direction base-game 1)))))))
 
-(defn cards-dealt-to-player
-  [player-id turn]
-  (:dealt (first
-            (filter #(= player-id (:id %))
-                    (deal-cards-to-players turn)))))
-
 (deftest robot-powers-down
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] blank-board)
         player1-id (get-in base-game [:state :players 0 :id])
@@ -732,4 +741,6 @@
                              (complete-turn turn)
                              (clean-up turn {player1-id :power-down-override}))]
                 (is (true? (get-in game [:state :players 0 :robot :powered-down?])))))))))))
+
+
 

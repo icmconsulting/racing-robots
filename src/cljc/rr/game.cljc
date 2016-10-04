@@ -43,7 +43,7 @@
   [event-type & args]
   {:time (timestamp)
    :type event-type
-   :other-robots args})
+   :args (seq args)})
 
 (defn add-robot-event
   [robot event-type & args]
@@ -530,6 +530,10 @@
                   (lock-player-registers turn)
                   (power-down-players turn player-commands))))
 
+(defn player-still-active?
+  [player]
+  (not= :dead (:state player)))
+
 (defn cut-and-deal-cards
   [players deck]
   (:players
@@ -560,7 +564,7 @@
   [state]
   (let [new-turn-number (inc (count (:turns state)))]
     (->RRGameTurnState new-turn-number
-                       (:players state)
+                       (vec (filter player-still-active? (:players state)))
                        (shuffle (:program-deck state)))))
 
 (defrecord RRGameState [state]
