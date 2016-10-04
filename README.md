@@ -26,7 +26,7 @@ DELETE /game/:game-id -> game over, send result
  
 Additional services:
 /profile -> player and robot profile - doubles as a ping service:
-    team-name, home-team-colour, away-team-colour (for clashes), logo (in base64 png), message
+    team-name, robot-name, home-team-colour, away-team-colour (for clashes), logo (in base64 png), message
 
 
 Test harness requirements:

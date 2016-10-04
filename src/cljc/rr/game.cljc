@@ -1,14 +1,18 @@
 (ns rr.game
   (:require [com.rpl.specter :refer :all]
             [clojure.spec :as s])
-  #?(:clj
-     (:import [java.util UUID])))
+  #?(:clj (:import [java.util UUID Date])))
 
 (defn uuid
   []
   (str
     #?(:cljs (random-uuid)
        :clj  (UUID/randomUUID))))
+
+(defn timestamp
+  []
+  #?(:clj (.getTime (Date.))
+     :cljs (.getTime (js/Date.))))
 
 (defprotocol RRGame
   (start-next-turn [game]) ;; => returns a RRGameTurn
@@ -34,6 +38,16 @@
 (defn player-by-id
   [state player-id]
   (first (filter #(= player-id (:id %)) (:players state))))
+
+(defn robot-event
+  [event-type & args]
+  {:time (timestamp)
+   :type event-type
+   :other-robots args})
+
+(defn add-robot-event
+  [robot event-type & args]
+  (update robot :events conj (apply robot-event event-type args)))
 
 (defmulti execute-player-register* (fn [_ [_ {:keys [type]}]] type))
 
@@ -389,14 +403,18 @@
             :else
             :playing))))
 
-(defn dec-damage
-  [damage]
-  (if (zero? damage) damage (dec damage)))
+(defn repair-damage
+  [{:keys [damage] :as robot}]
+  (if (zero? damage)
+    robot
+    (-> robot
+        (update :damage dec)
+        (add-robot-event :damage/repair))))
 
 (defn repair-robot-on-square
   [state repair-square]
   (if-let [{:keys [id]} (owner-player-at-position state repair-square)]
-    (transform (conj (player-robot-path id) :damage) dec-damage state)
+    (transform (player-robot-path id) repair-damage state)
     state))
 
 (defn repair-robots-on-repair-squares
@@ -418,7 +436,9 @@
 (defn respawn
   [state {:keys [robot id]}]
   (if (zero? (:lives robot))
-    (setval [:players ALL #(= id (:id %)) :state] :dead state)
+    (->> state
+         (setval [:players ALL #(= id (:id %)) :state] :dead)
+         (transform (player-robot-path id) #(add-robot-event % :player/died)))
     (let [player-on-archive (some #(= (:archive-marker robot) (get-in % [:robot :position])) (:players state))]
       (->> state
            (transform (conj (player-robot-path id) :lives) dec)
@@ -426,7 +446,8 @@
                                                                      (random-adjacent-square state (:archive-marker robot))
                                                                      (:archive-marker robot))
                                                         :direction (rand-nth [:west :east :north :south])
-                                                        :damage    2}))))))
+                                                        :damage    2}))
+           (transform (player-robot-path id) #(add-robot-event % :player/lost-life))))))
 
 (defn players-with-destroyed-robots
   [state]
@@ -452,6 +473,16 @@
   (take (- 5 num-registers-for-next-turn)
         (concat locked-registers (reverse player-registers-for-turn))))
 
+(defn lock-robot-registers
+  [num-registers-for-this-turn registers-for-turn robot]
+  (let [old-locked-registers (:locked-registers robot)
+        new-locked-registers (calculate-locked-registers (:locked-registers robot)
+                                                         registers-for-turn
+                                                         num-registers-for-this-turn)]
+    (cond-> robot
+            true (assoc :locked-registers new-locked-registers)
+            (not= old-locked-registers new-locked-registers) (add-robot-event :registers/locked-register-change old-locked-registers))))
+
 (defn lock-player-registers
   [state turn]
   (let [damaged-players (->> (:players state)
@@ -460,12 +491,18 @@
     (reduce (fn [state {:keys [id] :as damaged-player}]
               (let [registers (-> turn (registers-for-turn) (get id))]
                 (transform (player-robot-path id)
-                           #(update % :locked-registers
-                                    calculate-locked-registers
-                                    registers
-                                    (:num-registers damaged-player))
+                           (partial lock-robot-registers (:num-registers damaged-player) registers)
                            state)))
             state damaged-players)))
+
+(defn robot-maybe-powering-down
+  [player-ids-powering-down players-with-robots-destroyed players-overriding {:keys [id]} robot]
+  (let [[powering-down? event-type] (if (and (players-with-robots-destroyed id) (players-overriding id))
+                                      [false :power-down/overriding]
+                                      [(some? (player-ids-powering-down id)) :power-down/start])]
+    (cond-> robot
+            true (assoc :powered-down? powering-down?)
+            powering-down? (add-robot-event robot event-type))))
 
 (defn power-down-players
   [state turn player-commands]
@@ -474,10 +511,8 @@
                                 (map key (filter #(= :power-down (val %)) player-commands))))
         players-overriding (set (map key (filter #(= :power-down-override (val %)) player-commands)))
         robots-destroyed (set (map :id (players-with-destroyed-robots state)))]
-    (transform [:players ALL (collect-one :id) :robot]
-               #(assoc %2 :powered-down? (if (and (robots-destroyed %1) (players-overriding %1))
-                                           false
-                                           (some? (player-ids %1))))
+    (transform [:players ALL VAL :robot]
+               (partial robot-maybe-powering-down player-ids robots-destroyed players-overriding)
                state)))
 
 (defn execute-clean-up
@@ -514,17 +549,6 @@
   (registers-for-turn [turn] (:registers turn)) ;; => map from player -> []
   (registers-required-for-turn [turn] (registers-for-players turn)) ;; => map from player -> number
   (players-powering-down-next-turn [turn] (map (partial player-by-id turn) (:powering-down turn))))
-
-(def null-previous-turn
-  "Represents the turn before the first turn of the game"
-  (reify RRGameTurn
-    (turn-number [_] nil)
-    (deal-cards-to-players [_] nil)
-    (player-enters-registers [turn _ _ _] turn)
-    (player-timedout [turn _] turn)
-    (registers-for-turn [_] {})
-    (registers-required-for-turn [_] {})
-    (players-powering-down-next-turn [_] {})))
 
 (defn new-game-turn
   [state]
@@ -631,7 +655,8 @@
   [board idx player]
   (let [start-position (docking-bay-position board (inc idx))]
     (assoc player
-      :robot {:position         start-position
+      :robot {:name             (:robot-name player)
+              :position         start-position
               :direction        :north
               :archive-marker   start-position
               :docking-bay      (inc idx)
@@ -639,7 +664,8 @@
               :lives            4
               :damage           0
               :flags            #{}
-              :locked-registers []})))
+              :locked-registers []
+              :events []})))
 
 (defn player-with-game-id
   [player]
@@ -658,6 +684,5 @@
 ;; TODO:
 ;; - timed out player surplus cards passed to next player
 ;; - player cheats with cards (cards not dealt) lose life and move back to archive-marker
-;; - start new turn -> deal cards
 ;; - game message log
 ;; - start test harness by Monday 6th Oct - includes the game engine/driver/controller
