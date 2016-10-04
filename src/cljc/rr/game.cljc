@@ -422,13 +422,19 @@
   (let [repair-squares (squares-matching (:board state) :repair)]
     (reduce repair-robot-on-square state repair-squares)))
 
+(defn can-be-placed-on-square?
+  [board position]
+  (let [square (square-at board position)]
+    (and square
+      (not (:pit square)))))
+
 (defn random-adjacent-square
   [{:keys [board players]} [x y]]
   (let [all-adj-squares (->>
                           (concat (map vector (range (dec x) (inc (inc x))) (repeat (dec y)))
                                   [[(dec x) y] [(inc x) y]]
                                   (map vector (range (dec x) (inc (inc x))) (repeat (inc y))))
-                          (filter (partial square-at board))
+                          (filter (partial can-be-placed-on-square? board))
                           (set))
         all-player-squares (set (keep (comp :position :robot) players))]
     (rand-nth (seq (clojure.set/difference all-adj-squares all-player-squares)))))
@@ -685,4 +691,4 @@
 ;; - timed out player surplus cards passed to next player
 ;; - player cheats with cards (cards not dealt) lose life and move back to archive-marker
 ;; - game message log
-;; - start test harness by Monday 6th Oct - includes the game engine/driver/controller
+;; - start test harness by 6th Oct - includes the game engine/driver/controller

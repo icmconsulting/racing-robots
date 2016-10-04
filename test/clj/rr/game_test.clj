@@ -294,7 +294,7 @@
       [(repeat 4 blank-square)]
       [[(with-walls blank-square :south) (-> blank-square (with-walls :west) (with-lasers :west 3))
         (with-belt blank-square :north) blank-square]]
-      [(repeat 4 blank-square)]
+      [(concat [(with-pit blank-square)] (repeat 3 blank-square))]
       [(map docking-bay-square (range 1 5))])))
 
 (deftest wall-laser-interaction
@@ -485,15 +485,16 @@
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"}] board-with-lasers)
         player1-id (get-in base-game [:state :players 0 :id])]
     (testing "Robot reaching 0 damage"
-      (let [base-game (-> base-game
+      (let [turn (t {player1-id [{:type :move :value 2 :priority 100} ;; << destroyed here
+                                 {:type :rotate :value :left :priority 100}
+                                 {:type :move :value 2 :priority 100}]})
+            base-game (-> base-game
                           (update-in [:state :players 0 :robot] merge {:damage         9
                                                                        :direction      :west
                                                                        :position       [2 0]
                                                                        :archive-marker [0 4]
                                                                        :lives          4})
-                          (complete-turn (t {player1-id [{:type :move :value 2 :priority 100} ;; << destroyed here
-                                                         {:type :rotate :value :left :priority 100}
-                                                         {:type :move :value 2 :priority 100}]})))]
+                          (complete-turn turn))]
         (testing "Is destroyed and does not move for the rest of the turn"
           (is (= :destroyed (player-state base-game 1)))
           (is (nil? (player-position base-game 1)))
@@ -521,9 +522,16 @@
                                         (random-adjacent-square (:state base-game) [0 4]))
                               (clean-up (start-next-turn base-game) {}))]
             (is (not= (player-position base-game 1) (player-position base-game 2)))
-            (is (not= (player-position base-game 1) (player-position base-game 3))))))
+            (is (not= (player-position base-game 1) (player-position base-game 3)))))
 
-      (testing "Robot can't respawn onto a pit" (is (= 1 2))) ;;TODO
+        (testing "Robot can't respawn onto a pit"
+          (is (nil? ((set (for [_ (range 0 10)]
+                            (let [base-game (-> base-game
+                                                (assoc-in [:state :players 1 :robot :position] [0 4])
+                                                (assoc-in [:state :players 2 :robot :position] [1 4])
+                                                (clean-up turn {}))]
+                              (player-position base-game 1))))
+                      [0 3])))))
 
       (testing "Multiple robots respawning"
         (let [base-game (-> base-game
