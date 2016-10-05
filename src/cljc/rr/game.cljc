@@ -45,7 +45,7 @@
   [event-type & args]
   {:time (timestamp)
    :type event-type
-   :args (seq args)
+   :args (when (first args) (seq args))
    :turn (turn-number *current-turn*)})
 
 (defn add-robot-event
@@ -178,16 +178,19 @@
   [board express-only? {:keys [position direction] :as robot}]
   (if-let [[belt-direction express] (on-belt? board position)]
     (let [position-after-belt (translate-position position belt-direction 1)
-          square-after-belt (square-at board position-after-belt)]
-      (merge robot
-             (cond
-               ;; move the robot
-               (or (not express-only?) (and express-only? express))
-               {:position  position-after-belt
-                :direction (if-let [[new-belt-direction] (:belt square-after-belt)]
-                             new-belt-direction
-                             direction)}
-               (nil? square-after-belt) destroyed-robot-attributes)))
+          square-after-belt (square-at board position-after-belt)
+          [new-attrs event] (cond
+                              (nil? square-after-belt) [destroyed-robot-attributes :destroyed/belt-pushed-off-board]
+
+                              ;; move the robot
+                              (or (not express-only?) (and express-only? express))
+                              [{:position  position-after-belt
+                                :direction (if-let [[new-belt-direction] (:belt square-after-belt)]
+                                             new-belt-direction
+                                             direction)} :belt/moved-by-belt])]
+      (-> robot
+        (merge new-attrs)
+        (add-robot-event event)))
     robot))
 
 (defn move-players-along-conveyer-belt
@@ -196,10 +199,7 @@
     (reduce (fn [state [player-id {:keys [position] :as robot}]]
               (if (< 1 (count (filter #(= position (:position (second %))) new-player-pos)))
                 state
-                (let [robot-with-event (add-robot-event robot (if express-only?
-                                                                :belt/moved-by-express-belt
-                                                                :belt/moved-by-belt))]
-                  (setval (player-robot-path player-id) robot-with-event state))))
+                (setval (player-robot-path player-id) robot state)))
             state new-player-pos)))
 
 (defn priority
@@ -371,19 +371,43 @@
   (let [archive-squares (squares-matching (:board state) (some-fn :flag :repair))]
     (reduce robot-places-archive-marker state archive-squares)))
 
+(defn calculate-victory-status
+  [state]
+  (let [{:keys [board players]} state
+        active-players (filter player-still-active? players)
+        flags-on-board (map (comp :flag (partial square-at board)) (squares-matching board :flag))
+        target-flag (when (seq flags-on-board) (reduce max flags-on-board))
+        player-has-target-flag? #((get-in % [:robot :flags]) target-flag)]
+    (cond
+      (and target-flag (seq (filter player-has-target-flag? players))) ;; someone has landed on the last flag
+      [:game-over (map #(assoc % :victory-state (if (player-has-target-flag? %) :winner :loser)) players)]
+
+      (= 1 (count active-players))
+      [:game-over (map #(assoc % :victory-state (if (player-still-active? %) :winner :loser)) players)]
+
+      (empty? active-players)
+      [:game-over (let [flag-count-fn (comp count :flags :robot)
+                        max-flags (apply max (map flag-count-fn players))]
+                    (map #(assoc % :victory-state (if (= max-flags (flag-count-fn %)) :winner :loser)) players))]
+
+      :else [:active players])))
+
 (defn execute-register-number
   [state [_ player-id->register]]
-  (let [prioritised-players (sort-by (partial priority state) > player-id->register)]
-    (->
-      (reduce execute-player-register state prioritised-players)
-      (move-players-along-conveyer-belt true)
-      (move-players-along-conveyer-belt false)
-      (into-pits)
-      (move-rotator-gears)
-      (fire-wall-lasers)
-      (fire-robot-lasers)
-      (touch-flags)
-      (touch-archive-point))))
+  (let [prioritised-players (sort-by (partial priority state) > player-id->register)
+        state (->
+                (reduce execute-player-register state prioritised-players)
+                (move-players-along-conveyer-belt true)
+                (move-players-along-conveyer-belt false)
+                (into-pits)
+                (move-rotator-gears)
+                (fire-wall-lasers)
+                (fire-robot-lasers)
+                (touch-flags)
+                (touch-archive-point))]
+    (if (= :game-over (first (calculate-victory-status state)))
+      (reduced state)
+      state)))
 
 (defn registers-by-execution-order
   [player-ids->registers]
@@ -567,6 +591,7 @@
                   (lock-player-registers turn)
                   (power-down-players turn player-commands))))
 
+
 (defn cut-and-deal-cards
   [players deck]
   (:players
@@ -575,7 +600,6 @@
                 (assoc r :remaining-deck (drop cards-due remaining-deck)
                          :players (conj players (assoc player :dealt (take cards-due remaining-deck))))))
             {:remaining-deck deck :players []} players)))
-
 
 (defn registers-for-players
   [{:keys [players]}]
@@ -592,27 +616,6 @@
   (registers-for-turn [turn] (:registers turn)) ;; => map from player -> []
   (registers-required-for-turn [turn] (registers-for-players turn)) ;; => map from player -> number
   (players-powering-down-next-turn [turn] (map (partial player-by-id turn) (:powering-down turn))))
-
-(defn calculate-victory-status
-  [state]
-  (let [{:keys [board players]} state
-        active-players (filter player-still-active? players)
-        flags-on-board (map (comp :flag (partial square-at board)) (squares-matching board :flag))
-        target-flag (when (seq flags-on-board) (reduce max flags-on-board))
-        player-has-target-flag? #((get-in % [:robot :flags]) target-flag)]
-    (cond
-      (and target-flag (seq (filter player-has-target-flag? players))) ;; someone has landed on the last flag
-      [:game-over (map #(assoc % :victory-state (if (player-has-target-flag? %) :winner :loser)) players)]
-
-      (= 1 (count active-players))
-      [:game-over (map #(assoc % :victory-state (if (player-still-active? %) :winner :loser)) players)]
-
-      (empty? active-players)
-      [:game-over (let [flag-count-fn (comp count :flags :robot)
-                        max-flags (apply max (map flag-count-fn players))]
-                    (map #(assoc % :victory-state (if (= max-flags (flag-count-fn %)) :winner :loser)) players))]
-
-      :else [:active players])))
 
 (defn new-game-turn
   [state]

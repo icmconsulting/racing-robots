@@ -61,7 +61,7 @@
   (get-in game [:state :players (dec player-num) :robot :locked-registers]))
 
 (deftest moving-robot
-  (let [base-game (new-game [{:name "player 1"}] blank-board)
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] blank-board)
         player-id (get-in base-game [:state :players 0 :id])]
     (testing "Moving robot north"
       (is (= [4 10]
@@ -265,7 +265,7 @@
       [(map docking-bay-square (range 1 5))])))
 
 (deftest rotator-interaction
-  (let [base-game (new-game [{:name "player 1"}] board-with-rotators)
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] board-with-rotators)
         player1-id (get-in base-game [:state :players 0 :id])]
     (testing "Robot landing on a rotate-left square is rotated left"
       (let [base-single-player-game (complete-turn base-game (t {player1-id [{:type :move :value 2 :priority 290}
@@ -451,11 +451,12 @@
       [(map docking-bay-square (range 1 5))])))
 
 (deftest robot-repair-station-interaction
-  (let [base-game (new-game [{:name "player 1"}] board-with-repair-stations)
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] board-with-repair-stations)
         player1-id (get-in base-game [:state :players 0 :id])]
     (testing "Robot landing on a repair site has their archive marker moved to this square, but no damage reduction"
       (let [base-game (-> base-game
                           (assoc-in [:state :players 0 :robot :damage] 5)
+                          (assoc-in [:state :players 1 :robot :position] [3 4])
                           (complete-turn (t {player1-id [{:type :move :value 2 :priority 100}
                                                          {:type :move :value 2 :priority 100}
                                                          {:type :rotate :value :right :priority 100}
@@ -743,7 +744,9 @@
                 (is (true? (get-in game [:state :players 0 :robot :powered-down?])))))))))))
 
 (deftest end-of-game
-  (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"} {:name "player 4"}] board-with-flags)]
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"} {:name "player 4"}] board-with-flags)
+        player1-id (get-in base-game [:state :players 0 :id])
+        player2-id (get-in base-game [:state :players 1 :id])]
     (testing "Game is over when"
       (testing "only one player is left, and that player is the winner"
         (let [game (-> base-game
@@ -812,4 +815,17 @@
                     (update-in [:state :players 1 :robot] merge {:flags #{1 2}})
                     (update-in [:state :players 2 :robot] merge {:flags #{}})
                     (update-in [:state :players 3 :robot] merge {:flags #{1 2 3}})
-                    (start-next-turn)))))))
+                    (start-next-turn)))))
+
+    (testing "If two robots can touch final flag on same turn, the first one to reach flag wins"
+      (let [game (-> base-game
+                     (update-in [:state :players 0 :robot] merge {:flags #{1 2} :position [3 2] :direction :west})
+                     (update-in [:state :players 1 :robot] merge {:flags #{1 2} :position [2 1] :direction :east}))
+            next-turn (t {player1-id [{:type :rotate :value :right :priority 100}
+                                      {:type :move :value 1 :priority 100}]
+                          player2-id [{:type :move :value 1 :priority 100}
+                                      {:type :rotate :value :right :priority 100}]})
+            game (-> (complete-turn game next-turn) (clean-up next-turn {}))
+            [game-state players] (victory-status game)]
+        (is (= :game-over game-state))
+        (is (= [:loser :winner :loser :loser] (mapv :victory-state #spy/p players)))))))
