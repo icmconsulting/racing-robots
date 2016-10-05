@@ -39,11 +39,14 @@
   [state player-id]
   (first (filter #(= player-id (:id %)) (:players state))))
 
+(def ^:dynamic *current-turn*)
+
 (defn robot-event
   [event-type & args]
   {:time (timestamp)
    :type event-type
-   :args (seq args)})
+   :args (seq args)
+   :turn (turn-number *current-turn*)})
 
 (defn add-robot-event
   [robot event-type & args]
@@ -82,8 +85,11 @@
   [:players ALL (if-path [:id (partial = player-id)] [:robot])])
 
 (defn update-robot-for-player
-  [state player-id new-robot-attrs]
-  (transform (player-robot-path player-id) #(merge % new-robot-attrs) state))
+  [state player-id new-robot-attrs [event pushed-by]]
+  (let [path (player-robot-path player-id)]
+    (->> state
+         (transform path #(merge % new-robot-attrs))
+         (transform path #(add-robot-event % event pushed-by)))))
 
 (defn can-move-in-direction?
   [board from direction]
@@ -114,24 +120,25 @@
 (def destroyed-robot-attributes {:state :destroyed :position nil :direction nil})
 
 (defn move-player-robot-by-single-square
-  [{:keys [board] :as state} {:keys [robot] :as player}]
+  [{:keys [board] :as state} {:keys [robot] :as player} & [pushed-by-robot]]
   (if (movable-robot-states (:state robot))
     (let [{:keys [position direction]} robot
           new-position (if (is-move-possible? state player 1)
                          (translate-position position direction 1)
                          position)
           new-board-square (square-at board new-position)
-          new-attrs (cond
-                      (nil? new-board-square) destroyed-robot-attributes
-                      :else {:position new-position})
-          new-state (update-robot-for-player state (:id player) new-attrs)
+          [new-attrs event] (cond
+                      (nil? new-board-square) [destroyed-robot-attributes :destroyed/fell-off-board]
+                      :else [{:position new-position} (keyword "move" (name direction))])
+          new-state (update-robot-for-player state (:id player) new-attrs [event pushed-by-robot])
           owner-player-at-new-position (owner-player-at-position state new-position)]
       (if (and owner-player-at-new-position
                (not= (:id owner-player-at-new-position)
                      (:id player)))
         (move-player-robot-by-single-square new-state
                                             (assoc-in owner-player-at-new-position
-                                               [:robot :direction] direction))
+                                               [:robot :direction] direction)
+                                            robot)
         new-state))
     state))
 
@@ -157,8 +164,10 @@
 
 (defmethod execute-player-register* :rotate
   [state [player-id {:keys [value]}]]
-  (transform [:players ALL (if-path [:id (partial = player-id)] [:robot :direction])]
-             (get rotate-delta value)
+  (transform [:players ALL (if-path [:id (partial = player-id)] [:robot])]
+             (comp
+               #(add-robot-event % (keyword "rotate" (name value)))
+               #(update % :direction (get rotate-delta value)))
              state))
 
 (defn on-belt?
@@ -187,7 +196,10 @@
     (reduce (fn [state [player-id {:keys [position] :as robot}]]
               (if (< 1 (count (filter #(= position (:position (second %))) new-player-pos)))
                 state
-                (setval (player-robot-path player-id) robot state)))
+                (let [robot-with-event (add-robot-event robot (if express-only?
+                                                                :belt/moved-by-express-belt
+                                                                :belt/moved-by-belt))]
+                  (setval (player-robot-path player-id) robot-with-event state))))
             state new-player-pos)))
 
 (defn priority
@@ -202,7 +214,9 @@
 (defn apply-rotator-gear-movement
   [board robot]
   (if-let [rotator-direction (on-rotator-gear? board (:position robot))]
-    (update robot :direction (get rotate-delta rotator-direction))
+    (-> robot
+        (update :direction (get rotate-delta rotator-direction))
+        (add-robot-event (keyword "rotator" (name rotator-direction))))
     robot))
 
 (defn squares-matching
@@ -218,7 +232,11 @@
 (defn destroy-robot-in-pit
   [state pit-position]
   (if-let [{:keys [id]} (owner-player-at-position state pit-position)]
-    (transform (player-robot-path id) #(merge % destroyed-robot-attributes) state)
+    (transform (player-robot-path id)
+               (comp
+                 #(add-robot-event % :destroyed/fell-into-pit)
+                 #(merge % destroyed-robot-attributes))
+               state)
     state))
 
 (defn into-pits
@@ -269,7 +287,7 @@
   (nil? ((:walls square #{}) (get-in rotate-delta [:u-turn laser-direction]))))
 
 (defn fire-laser
-  [{:keys [board] :as state} [laser-position {[laser-wall number-lasers] :laser} :as laser]]
+  [{:keys [board] :as state} [laser-position {[laser-wall number-lasers] :laser fired-by-robot :robot} :as laser]]
   (let [laser-direction (get-in rotate-delta [:u-turn laser-wall])
         player-positions (set (all-player-positions state))]
     ;; walk the laser through the board, until it hits either a robot, a wall, or the edge of the board
@@ -282,7 +300,13 @@
                 (player-positions position)
                 (let [player (owner-player-at-position state position)]
                   (reduced (transform (player-robot-path (:id player))
-                                      #(apply-damage-to-robot % number-lasers)
+                                      (comp
+                                        #(add-robot-event %
+                                                          (if fired-by-robot
+                                                            :damage/by-robot-laser
+                                                            :damage/by-wall-laser)
+                                                          (or fired-by-robot laser-position))
+                                        #(apply-damage-to-robot % number-lasers))
                                       state)))
 
                 (not (can-laser-pass-out-of-square? square laser-direction))
@@ -295,7 +319,7 @@
   (let [wall-lasers (all-wall-lasers board)]
     (reduce fire-laser state wall-lasers)))
 
-(defn robot->laser [board {:keys [direction position]}]
+(defn robot->laser [board {:keys [direction position] :as robot}]
   {:pre [position direction]}
   ;; robots shouldn't be able to shoot themselves, so laser should only take effect
   ;; in a square ahead of the robot in its direction. Obvsouly shouldn't be the case
@@ -304,7 +328,7 @@
     (when (and (can-laser-pass-out-of-square? (square-at board position) direction)
                (can-laser-pass-into-square? (square-at board advanced-position) direction))
       [advanced-position
-       {:laser [(get-in rotate-delta [:u-turn direction]) 1]}])))
+       {:laser [(get-in rotate-delta [:u-turn direction]) 1] :robot robot}])))
 
 (defn fire-robot-lasers [{:keys [players board] :as state}]
   (let [robot-lasers (keep (comp (partial robot->laser board) :robot)
@@ -321,9 +345,12 @@
 (defn robot-touching-flag
   [state flag-position]
   (if-let [player-at-position (owner-player-at-position state flag-position)]
-    (transform (player-robot-path (:id player-at-position))
-               (partial apply-touched-flag (:flag (square-at (:board state) flag-position)))
-               state)
+    (let [flag-number (:flag (square-at (:board state) flag-position))]
+      (transform (player-robot-path (:id player-at-position))
+                 (comp
+                   #(add-robot-event % :victory/touched-flag flag-number)
+                   (partial apply-touched-flag flag-number))
+                 state))
     state))
 
 (defn touch-flags [{:keys [board] :as state}]
@@ -333,7 +360,9 @@
 (defn robot-places-archive-marker [state archive-square-position]
   (if-let [player-at-position (owner-player-at-position state archive-square-position)]
     (transform (player-robot-path (:id player-at-position))
-               #(assoc % :archive-marker archive-square-position)
+               (comp
+                 #(add-robot-event % :archive-marker/moved-to archive-square-position)
+                 #(assoc % :archive-marker archive-square-position))
                state)
     state))
 
@@ -381,7 +410,10 @@
 
 (defn heal-powered-down-robots
   [game]
-  (setval [:state :players ALL (if-path [:robot :powered-down? true?] [:robot :damage])] 0 game))
+  (transform [:state :players ALL (if-path [:robot :powered-down? true?] [:robot])]
+             (comp
+               #(add-robot-event % :damage/repair-powered-down)
+               #(assoc % :damage 0)) game))
 
 (defn execute-turn
   [game turn]
@@ -593,9 +625,9 @@
 (defrecord RRGameState [state]
   RRGame
   (start-next-turn [game] (new-game-turn (:state game)))
-  (complete-turn [game turn] (execute-turn game turn))
+  (complete-turn [game turn] (binding [*current-turn* turn] (execute-turn game turn)))
   (players  [game] (get-in game [:state :players]))
-  (clean-up [game turn player-commands] (execute-clean-up game turn player-commands))
+  (clean-up [game turn player-commands] (binding [*current-turn* turn] (execute-clean-up game turn player-commands)))
   (victory-status [game] (calculate-victory-status (:state game))))
 
 ;; program card deck
@@ -715,10 +747,11 @@
        :turns        {}})))
 
 ;; TODO:
-;; - timed out player surplus cards passed to next player
-;; - player cheats with cards (cards not dealt) lose life and move back to archive-marker
 ;; - game message log
-;; - player becomes inactive (x number of errors in game) -> player is removed from game
+;; - timed out player surplus cards passed to next player
+
 ;; - start test harness by 6th Oct - includes the game engine/driver/controller
+;; - player becomes inactive (x number of errors in game) -> player is removed from game
+;; - player cheats with cards (cards not dealt) lose life and move back to archive-marker
 
 ;; early game victory termination - if all flags are captured, then stop executing registers... nice to have...
