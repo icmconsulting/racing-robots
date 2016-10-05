@@ -828,4 +828,4 @@
             game (-> (complete-turn game next-turn) (clean-up next-turn {}))
             [game-state players] (victory-status game)]
         (is (= :game-over game-state))
-        (is (= [:loser :winner :loser :loser] (mapv :victory-state #spy/p players)))))))
+        (is (= [:loser :winner :loser :loser] (mapv :victory-state players)))))))
