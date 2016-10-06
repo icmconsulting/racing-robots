@@ -1,7 +1,8 @@
 (ns rr.repl
   (:use rr.handler
         ring.server.standalone
-        [ring.middleware file-info file]))
+        [ring.middleware file-info file]
+        [cljsjs.react-bootstrap]))
 
 (defonce server (atom nil))
 

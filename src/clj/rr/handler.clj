@@ -6,18 +6,17 @@
             [config.core :refer [env]]))
 
 (def mount-target
-  [:div#app
-      [:h3 "ClojureScript has not been compiled!"]
-      [:p "please run "
-       [:b "lein figwheel"]
-       " in order to start the compiler"]])
+  [:div#app [:h3 "Standby for racing robots..."]])
 
 (defn head []
   [:head
    [:meta {:charset "utf-8"}]
    [:meta {:name "viewport"
            :content "width=device-width, initial-scale=1"}]
-   (include-css (if (env :dev) "/css/site.css" "/css/site.min.css"))])
+   [:link {:rel "stylesheet" :href "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.4/css/bootstrap.min.css"
+           :integrity "sha384-2hfp1SzUoho7/TsGGGDaFdsuuDL0LX2hnUp6VkX3CUQ2K4K+xjboZdsXyp4oUHZj"
+           :crossorigin "anonymous"}]
+   (include-css (if (env :dev) "/css/rr.css" "/css/rr.min.css"))])
 
 (defn loading-page []
   (html5
@@ -35,7 +34,7 @@
 
 (defroutes routes
   (GET "/" [] (loading-page))
-  (GET "/about" [] (loading-page))
+  (GET "/rr" [] (loading-page))
   (GET "/cards" [] (cards-page))
   (resources "/")
   (not-found "Not Found"))

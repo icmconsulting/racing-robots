@@ -7,6 +7,18 @@
 ;; -------------------------
 ;; Views
 
+;; TODO:
+;; - Test game harness page
+;;   - start new game, select port for server, select 3 bots, select board name, click start
+;;   - during game, select "autoplay", or directed play (next, rewind)
+;;   - ticking, scrollable log (written to js console? sounds better)
+;;
+;; - For each player in game:
+;;   - Number of lives left, current robot damage, number of flags touched
+;;   - player logo, name, robot name
+;;   -
+;; - board browser page
+
 (defn home-page []
   [:div [:h2 "Welcome to rr"]
    [:div [:a {:href "/about"} "go to about page"]]])
@@ -24,7 +36,7 @@
 (secretary/defroute "/" []
   (session/put! :current-page #'home-page))
 
-(secretary/defroute "/about" []
+(secretary/defroute "/rr" []
   (session/put! :current-page #'about-page))
 
 ;; -------------------------

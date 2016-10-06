@@ -1,9 +1,9 @@
 (ns rr.game
-  (:require [com.rpl.specter :refer :all]
+  (:require [com.rpl.specter :refer [transform setval ALL VAL if-path]]
             [clojure.spec :as s])
   #?(:clj (:import [java.util UUID Date])))
 
-(defn uuid
+(defn uuid-str
   []
   (str
     #?(:cljs (random-uuid)
@@ -129,7 +129,10 @@
           new-board-square (square-at board new-position)
           [new-attrs event] (cond
                       (nil? new-board-square) [destroyed-robot-attributes :destroyed/fell-off-board]
-                      :else [{:position new-position} (keyword "move" (name direction))])
+                      :else [{:position new-position}
+                             (if (= position new-position)
+                               :move/blocked
+                               (keyword "move" (name direction)))])
           new-state (update-robot-for-player state (:id player) new-attrs [event pushed-by-robot])
           owner-player-at-new-position (owner-player-at-position state new-position)]
       (if (and owner-player-at-new-position
@@ -366,6 +369,10 @@
                state)
     state))
 
+(defn player-still-active?
+  [player]
+  (not= :dead (:state player)))
+
 (defn touch-archive-point
   [state]
   (let [archive-squares (squares-matching (:board state) (some-fn :flag :repair))]
@@ -544,10 +551,6 @@
     (cond-> robot
             true (assoc :locked-registers new-locked-registers)
             (not= old-locked-registers new-locked-registers) (add-robot-event :registers/locked-register-change old-locked-registers))))
-
-(defn player-still-active?
-  [player]
-  (not= :dead (:state player)))
 
 (defn lock-player-registers
   [state turn]
@@ -737,19 +740,21 @@
 
 (defn player-with-game-id
   [player]
-  (assoc player :id (uuid)))
+  (assoc player :id (uuid-str)))
 
 (defn new-game
   [players board]
   (let [program-deck (shuffle program-card-deck)]
     (->RRGameState
-      {:id           (uuid)
+      {:id           (uuid-str)
        :program-deck program-deck
        :board        board
        :players      (vec (map-indexed (comp player-with-game-id (partial player-with-robot board)) (shuffle players)))
        :turns        {}})))
 
 ;; TODO:
+
+;; - log hitting wall?
 
 ;; - start test harness by 6th Oct - includes the game engine/driver/controller
 ;; - timed out player surplus cards passed to next player

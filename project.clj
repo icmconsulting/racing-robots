@@ -8,8 +8,9 @@
                  [com.taoensso/timbre "4.7.4"]
                  [ring-server "0.4.0"]
                  [reagent "0.6.0"]
-                 [reagent-forms "0.5.25"]
+                 [reagent-forms "0.5.26"]
                  [reagent-utils "0.2.0"]
+                 [cljsjs/react-bootstrap "0.30.2-0"]
                  [ring "1.5.0"]
                  [ring/ring-defaults "0.2.1"]
                  [compojure "1.5.1"]
@@ -23,12 +24,17 @@
                  [org.clojure/test.check "0.9.0" :scope "test"]]
 
   :plugins [[lein-environ "1.0.2"]
-            [lein-cljsbuild "1.1.1"]
+            [lein-cljsbuild "1.1.4"]
+            [icm-consulting/lein-less "1.7.6-SNAPSHOT"]
             [lein-asset-minifier "0.2.7"
              :exclusions [org.clojure/clojure]]]
 
   :ring {:handler rr.handler/app
          :uberwar-name "rr.war"}
+
+  :less {:source-paths ["src/less/rr.less"]
+         :target-path "resources/public/css"
+         :clean-path "resources/public/css/rr.css"}
 
   :min-lein-version "2.5.0"
 
@@ -106,17 +112,17 @@
                    :dependencies [[ring/ring-mock "0.3.0"]
                                   [ring/ring-devel "1.5.0"]
                                   [prone "1.1.2"]
-                                  [figwheel-sidecar "0.5.7"]
+                                  [figwheel-sidecar "0.5.8"]
                                   [org.clojure/tools.nrepl "0.2.12"]
                                   [com.cemerick/piggieback "0.2.2-SNAPSHOT"]
-                                  [lein-doo "0.1.6"]
-                                  [devcards "0.2.1-7"]
+                                  [lein-doo "0.1.7"]
+                                  [devcards "0.2.2"]
                                   [pjstadig/humane-test-output "0.8.1"]
                                   ]
 
                    :source-paths ["env/dev/clj"]
-                   :plugins [[lein-figwheel "0.5.7"]
-                             [lein-doo "0.1.6"]
+                   :plugins [[lein-figwheel "0.5.8"]
+                             [lein-doo "0.1.7"]
                              ]
 
                    :injections [(require 'pjstadig.humane-test-output)
