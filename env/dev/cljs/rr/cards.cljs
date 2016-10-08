@@ -11,7 +11,7 @@
   [:div>h1 "This is your first devcard!"])
 
 (defcard-rg home-page-card
-  [core/home-page])
+            [core/test-harness-root])
 
 (reagent/render [:div] (.getElementById js/document "app"))
 

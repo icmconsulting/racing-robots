@@ -14,12 +14,18 @@
   #?(:clj (.getTime (Date.))
      :cljs (.getTime (js/Date.))))
 
+(defprotocol RRBoard
+  (board-size [board])
+  (square-at [board point])
+  (docking-bay-position [board num])) ;; => [status, players-in-order-of-victory-status], status -> :active, :game-over
+
 (defprotocol RRGame
+  (board [game])
   (start-next-turn [game]) ;; => returns a RRGameTurn
   (complete-turn [game turn])
   (clean-up [game turn player-commands])
   (players  [game])
-  (victory-status [game])) ;; => [status, players-in-order-of-victory-status], status -> :active, :game-over
+  (victory-status [game]))
 
 (defprotocol RRGameTurn
   (turn-number [turn])
@@ -29,11 +35,6 @@
   (registers-for-turn [turn])                               ;; => map from player-id -> []
   (registers-required-for-turn [turn])
   (players-powering-down-next-turn [turn]))
-
-(defprotocol RRBoard
-  (board-size [board])
-  (square-at [board point])
-  (docking-bay-position [board num]))
 
 (defn player-by-id
   [state player-id]
@@ -630,6 +631,7 @@
 
 (defrecord RRGameState [state]
   RRGame
+  (board [game] (get-in game [:state :board]))
   (start-next-turn [game] (new-game-turn (:state game)))
   (complete-turn [game turn] (binding [*current-turn* turn] (execute-turn game turn)))
   (players  [game] (get-in game [:state :players]))

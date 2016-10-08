@@ -1,8 +1,7 @@
 (ns rr.repl
   (:use rr.handler
         ring.server.standalone
-        [ring.middleware file-info file]
-        [cljsjs.react-bootstrap]))
+        [ring.middleware file-info file]))
 
 (defonce server (atom nil))
 
@@ -31,3 +30,7 @@
 (defn stop-server []
   (.stop @server)
   (reset! server nil))
+
+(comment
+  (start-server)
+  )

@@ -15,6 +15,7 @@
                  [ring/ring-defaults "0.2.1"]
                  [compojure "1.5.1"]
                  [hiccup "1.0.5"]
+                 [cljs-ajax "0.5.8"]
                  [yogthos/config "0.8"]
                  [com.rpl/specter "0.13.0"]
                  [org.clojure/clojurescript "1.9.229" :scope "provided"]

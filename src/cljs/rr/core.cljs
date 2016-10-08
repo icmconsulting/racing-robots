@@ -2,7 +2,10 @@
     (:require [reagent.core :as reagent :refer [atom]]
               [reagent.session :as session]
               [secretary.core :as secretary :include-macros true]
-              [accountant.core :as accountant]))
+              [accountant.core :as accountant]
+              [cljsjs.react-bootstrap]
+              [rr.game-viewer :as game-viewer]
+              [rr.board-browser :as board-browser]))
 
 ;; -------------------------
 ;; Views
@@ -19,25 +22,21 @@
 ;;   -
 ;; - board browser page
 
-(defn home-page []
-  [:div [:h2 "Welcome to rr"]
-   [:div [:a {:href "/about"} "go to about page"]]])
-
-(defn about-page []
-  [:div [:h2 "About rr"]
-   [:div [:a {:href "/"} "go to the home page"]]])
 
 (defn current-page []
-  [:div [(session/get :current-page)]])
+  [(session/get :current-page)])
 
 ;; -------------------------
 ;; Routes
 
 (secretary/defroute "/" []
-  (session/put! :current-page #'home-page))
+  (session/put! :current-page #'game-viewer/game-viewer-root))
 
-(secretary/defroute "/rr" []
-  (session/put! :current-page #'about-page))
+(secretary/defroute "/newgame" []
+  (session/put! :current-page #'game-viewer/game-viewer-root))
+
+(secretary/defroute "/boards" []
+  (session/put! :current-page #'board-browser/board-browser-root))
 
 ;; -------------------------
 ;; Initialize app
