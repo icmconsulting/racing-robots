@@ -3,9 +3,24 @@
               [reagent.session :as session]
               [secretary.core :as secretary :include-macros true]
               [accountant.core :as accountant]
-              [cljsjs.react-bootstrap]
+              [rr.bs :as bs]
               [rr.game-viewer :as game-viewer]
               [rr.board-browser :as board-browser]))
+
+;; -------------------------
+;; Routes
+
+(secretary/defroute root-route "/" []
+  (session/put! :current-page #'game-viewer/game-viewer-root))
+
+(secretary/defroute new-game-route "/newgame" []
+  (session/put! :current-page #'game-viewer/game-viewer-root))
+
+(secretary/defroute boards-route "/boards" []
+  (session/put! :current-page #'board-browser/board-browser-root))
+
+(secretary/defroute boards-id-route "/boards/:id" {id :id}
+  (session/put! :current-page (partial #'board-browser/board-browser-root (keyword id))))
 
 ;; -------------------------
 ;; Views
@@ -22,21 +37,21 @@
 ;;   -
 ;; - board browser page
 
+(defn rr-nav
+  []
+  [bs/navbar {:inverse true}
+   [bs/navbar-header
+    [bs/navbar-brand "Racing Robots"]
+    [bs/navbar-toggle]]
+   [bs/navbar-collapse
+    [bs/nav
+     [bs/navbar-item {:href (new-game-route)} "Game"]
+     [bs/navbar-item {:href (boards-route)} "Boards"]]]])
 
 (defn current-page []
-  [(session/get :current-page)])
-
-;; -------------------------
-;; Routes
-
-(secretary/defroute "/" []
-  (session/put! :current-page #'game-viewer/game-viewer-root))
-
-(secretary/defroute "/newgame" []
-  (session/put! :current-page #'game-viewer/game-viewer-root))
-
-(secretary/defroute "/boards" []
-  (session/put! :current-page #'board-browser/board-browser-root))
+  [:div.page-root
+   [rr-nav]
+   [(session/get :current-page)]])
 
 ;; -------------------------
 ;; Initialize app

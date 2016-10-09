@@ -16,6 +16,7 @@
 
 (defprotocol RRBoard
   (board-size [board])
+  (rows [board])
   (square-at [board point])
   (docking-bay-position [board num])) ;; => [status, players-in-order-of-victory-status], status -> :active, :game-over
 
@@ -676,6 +677,7 @@
 (defrecord RRSeqBoard [board-squares]
   RRBoard
   (board-size [board] [(count (first board-squares)) (count board-squares)])
+  (rows [board] (:board-squares board))
   (square-at [board [x y]]
     (let [[max-x max-y] (board-size board)]
       (when (and  ((set (range 0 max-x)) x) ((set (range 0 max-y)) y))

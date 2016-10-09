@@ -17,13 +17,23 @@
   )
 
 (defn game-viewer-root []
-  [:div.row.game-viewer-root
-   [:section.left.col-xs-3
+  [:section.game-viewer-root
+   [:section.left
 
     ]
-   [:section.middle.col-xs-6
+   [:section.middle
     [game-title]
     ]
-   [:section.right.col-xs-3
+   [:section.right
 
     ]])
+;
+;<body class="vbox viewport">
+;<header>Header</header>
+;<section class="main hbox space-between">
+;<nav>Nav</nav>
+;<article>Article</article>
+;<aside>Aside</aside>
+;</section>
+;<footer>Footer</footer>
+;</body>

@@ -10,6 +10,7 @@
 
 (defn head []
   [:head
+   [:title "racing robots test harness"]
    [:meta {:charset "utf-8"}]
    [:meta {:name "viewport"
            :content "width=device-width, initial-scale=1"}]
@@ -34,7 +35,9 @@
 
 (defroutes routes
   (GET "/" [] (loading-page))
-  (GET "/rr" [] (loading-page))
+  (GET "/newgame" [] (loading-page))
+  (GET "/boards" [] (loading-page))
+           (GET "/boards/*" [] (loading-page))
   (GET "/cards" [] (cards-page))
   (resources "/")
   (not-found "Not Found"))

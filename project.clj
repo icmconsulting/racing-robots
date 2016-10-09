@@ -7,10 +7,10 @@
   :dependencies [[org.clojure/clojure "1.9.0-alpha12"]
                  [com.taoensso/timbre "4.7.4"]
                  [ring-server "0.4.0"]
-                 [reagent "0.6.0"]
+                 [reagent "0.6.0" :exclusions [cljsjs/react cljsjs/react-dom]]
                  [reagent-forms "0.5.26"]
                  [reagent-utils "0.2.0"]
-                 [cljsjs/react-bootstrap "0.30.2-0"]
+                 [cljsjs/react-bootstrap "0.30.2-0" :exclusions [cljsjs/react]]
                  [ring "1.5.0"]
                  [ring/ring-defaults "0.2.1"]
                  [compojure "1.5.1"]
@@ -60,39 +60,71 @@
   {:builds {:min
             {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
              :compiler
-             {:output-to "target/cljsbuild/public/js/app.js"
-              :output-dir "target/uberjar"
-              :optimizations :advanced
-              :pretty-print  false}}
+                           {:output-to     "target/cljsbuild/public/js/app.js"
+                            :output-dir    "target/uberjar"
+                            :optimizations :advanced
+                            :pretty-print  false
+                            :foreign-libs  [{:file     "src/js/konva/react-konva.bundle.js"
+                                             :provides ["cljsjs.react.dom"
+                                                        "cljsjs.react.dom"
+                                                        "cljsjs.react"
+                                                        "react-konva.core"]
+                                             :requires ["konva.core"]}
+                                            {:file     "src/js/konva/konva.js"
+                                             :provides ["konva.core"]}]}}
             :app
             {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
              :compiler
-             {:main "rr.dev"
-              :asset-path "/js/out"
-              :output-to "target/cljsbuild/public/js/app.js"
-              :output-dir "target/cljsbuild/public/js/out"
-              :source-map true
-              :optimizations :none
-              :pretty-print  true}}
+                           {:main          "rr.dev"
+                            :asset-path    "/js/out"
+                            :output-to     "target/cljsbuild/public/js/app.js"
+                            :output-dir    "target/cljsbuild/public/js/out"
+                            :source-map    true
+                            :optimizations :none
+                            :pretty-print  true
+                            :foreign-libs  [{:file     "src/js/konva/react-konva.bundle.js"
+                                             :provides ["cljsjs.react.dom"
+                                                        "cljsjs.react.dom"
+                                                        "cljsjs.react"
+                                                        "react-konva.core"]
+                                             :requires ["konva.core"]}
+                                            {:file     "src/js/konva/konva.js"
+                                             :provides ["konva.core"]}]}}
             :test
             {:source-paths ["src/cljs" "src/cljc" "test/cljs"]
-             :compiler {:main rr.doo-runner
-                        :asset-path "/js/out"
-                        :output-to "target/test.js"
-                        :output-dir "target/cljstest/public/js/out"
-                        :optimizations :whitespace
-                        :pretty-print true}}
+             :compiler     {:main          rr.doo-runner
+                            :asset-path    "/js/out"
+                            :output-to     "target/test.js"
+                            :output-dir    "target/cljstest/public/js/out"
+                            :optimizations :whitespace
+                            :pretty-print  true
+                            :foreign-libs [{:file     "src/js/konva/react-konva.bundle.js"
+                                            :provides ["cljsjs.react.dom"
+                                                       "cljsjs.react.dom"
+                                                       "cljsjs.react"
+                                                       "react-konva.core"]
+                                            :requires ["konva.core"]}
+                                           {:file     "src/js/konva/konva.js"
+                                            :provides ["konva.core"]}]}}
 
             :devcards
             {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
-             :figwheel {:devcards true}
-             :compiler {:main "rr.cards"
-                        :asset-path "js/devcards_out"
-                        :output-to "target/cljsbuild/public/js/app_devcards.js"
-                        :output-dir "target/cljsbuild/public/js/devcards_out"
-                        :source-map-timestamp true
-                        :optimizations :none
-                        :pretty-print true}}
+             :figwheel     {:devcards true}
+             :compiler     {:main                 "rr.cards"
+                            :asset-path           "js/devcards_out"
+                            :output-to            "target/cljsbuild/public/js/app_devcards.js"
+                            :output-dir           "target/cljsbuild/public/js/devcards_out"
+                            :source-map-timestamp true
+                            :optimizations        :none
+                            :pretty-print         true
+                            :foreign-libs [{:file     "src/js/konva/react-konva.bundle.js"
+                                            :provides ["cljsjs.react.dom"
+                                                       "cljsjs.react.dom"
+                                                       "cljsjs.react"
+                                                       "react-konva.core"]
+                                            :requires ["konva.core"]}
+                                           {:file     "src/js/konva/konva.js"
+                                            :provides ["konva.core"]}]}}
             }
    }
 
@@ -117,7 +149,7 @@
                                   [org.clojure/tools.nrepl "0.2.12"]
                                   [com.cemerick/piggieback "0.2.2-SNAPSHOT"]
                                   [lein-doo "0.1.7"]
-                                  [devcards "0.2.2"]
+                                  [devcards "0.2.2" :exclusions [cljsjs/react cljsjs/react-dom]]
                                   [pjstadig/humane-test-output "0.8.1"]
                                   ]
 
