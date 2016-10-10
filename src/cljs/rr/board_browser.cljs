@@ -40,41 +40,55 @@
 
 (defn base-renderer
   [_ {:keys [height width x y]}]
-  [k/image {:height height
-            :width  height
-            :image  base-square-image
-            :x      x
-            :y      y}])
+  (fn []
+    [k/image {:height height
+              :width  height
+              :image  base-square-image
+              :x      x
+              :y      y}]))
 
 (defn outline-renderer
   [_ {:keys [height width x y]}]
-  [k/rect {:x      x :y y
-           :height height :width height
-           :stroke "#ffffff" :stroke-width 1}])
+  (fn []
+    [k/rect {:x      x :y y
+             :height height :width height
+             :stroke "#ffffff" :stroke-width 1}]))
 
+;;TODO pick some better colours
 (def flag-colours ["orange" "red" "blue" "green" "purple"])
 
 (defn flag-renderer
   [{:keys [flag] :as s} {:keys [height width x y]}]
+  (when (and flag (pos? width))
+    (fn []
+      [k/group
+       (let [half-width (/ width 2)
+             radius (- half-width 1)]
+         [k/circle {:radius       radius
+                    :x            (+ x half-width)
+                    :y            (+ y (/ height 2))
+                    :fill         (get flag-colours (dec flag))
+                    :stroke       "black"
+                    :stroke-width 1}])
+       [k/text {:x (+ x (/ width 4))
+                :y (+ y (/ height 10))
+                :text (str flag)
+                :font-size (* height 0.8)
+                :font-family "Courier"
+                :fill "white"}]])))
 
-  (when flag
-    (println (get flag-colours (dec flag)))
-    [k/group
-     [k/circle {:radius width
-                :x (+ x (/ width 2))
-                :y (+ y (/ height 2))
-                ;:fill (get flag-colours (dec flag))
-                :stroke "black"
-                :stroke-width 2}]]
-    )
-  )
+(def renderers [base-renderer
+                outline-renderer
+                flag-renderer
+                ])
 
-(def square-renderers
-  [base-renderer
-   outline-renderer
-   #_flag-renderer
-   ]
-  )
+(defn square-renderers
+  [square props]
+  (let [renderers-to-apply (keep #(% square props) renderers)]
+    (map-indexed (fn [idx r]
+                   ^{:key idx}
+                   [r])
+                 renderers-to-apply)))
 
 (defn board-row
   [height y row]
@@ -84,11 +98,7 @@
      (fn [idx square]
        (let [x (* idx height)]
          ^{:key (str idx "-" y)}
-         [k/group
-          (map-indexed (fn [idx r]
-                         ^{:key idx}
-                         [r square {:width height :height height :x x :y y}])
-                       square-renderers)]))
+         [k/group (square-renderers square {:width height :height height :x x :y y})]))
      row)])
 
 (defn board-view
