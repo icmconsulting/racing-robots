@@ -38,6 +38,43 @@
                               :header (name id)}
              description]))])
 
+(defn base-renderer
+  [_ {:keys [height width x y]}]
+  [k/image {:height height
+            :width  height
+            :image  base-square-image
+            :x      x
+            :y      y}])
+
+(defn outline-renderer
+  [_ {:keys [height width x y]}]
+  [k/rect {:x      x :y y
+           :height height :width height
+           :stroke "#ffffff" :stroke-width 1}])
+
+(def flag-colours ["orange" "red" "blue" "green" "purple"])
+
+(defn flag-renderer
+  [{:keys [flag] :as s} {:keys [height width x y]}]
+
+  (when flag
+    (println (get flag-colours (dec flag)))
+    [k/group
+     [k/circle {:radius width
+                :x (+ x (/ width 2))
+                :y (+ y (/ height 2))
+                ;:fill (get flag-colours (dec flag))
+                :stroke "black"
+                :stroke-width 2}]]
+    )
+  )
+
+(def square-renderers
+  [base-renderer
+   outline-renderer
+   #_flag-renderer
+   ]
+  )
 
 (defn board-row
   [height y row]
@@ -48,14 +85,10 @@
        (let [x (* idx height)]
          ^{:key (str idx "-" y)}
          [k/group
-          [k/image {:height height
-                    :width  height
-                    :image  base-square-image
-                    :x      x
-                    :y      y}]
-          [k/rect {:x      x :y y
-                   :height height :width height
-                   :stroke "#ffffff" :stroke-width 1}]]))
+          (map-indexed (fn [idx r]
+                         ^{:key idx}
+                         [r square {:width height :height height :x x :y y}])
+                       square-renderers)]))
      row)])
 
 (defn board-view
