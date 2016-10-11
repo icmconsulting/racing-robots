@@ -34,6 +34,7 @@
 (def repair-image (image-obj "/images/repair.png"))
 (def pit-image (image-obj "/images/pit.jpg"))
 (def belt-arrow-image (image-obj "/images/belt-arrow.png"))
+(def belt-express-arrow-image (image-obj "/images/belt-express-arrow.png"))
 (def belt-tubes-pattern-image (image-obj "/images/belt-tubes-pattern.jpg"))
 
 (def safety-colour "#A8DB92")
@@ -106,7 +107,7 @@
                   :fill-pattern-scale-y (/ height 300)}]
          [k/image {:height   (* 0.6 height)
                    :width    width
-                   :image    belt-arrow-image
+                   :image    (if express? belt-express-arrow-image belt-arrow-image)
                    :x        (+ x (* width (:x position-adj 0)))
                    :y        (+ y (* height (:y position-adj 0)))
                    :rotation rot
