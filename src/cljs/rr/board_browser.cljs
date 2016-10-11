@@ -113,6 +113,25 @@
                    :rotation rot
                    :fill     "#676767"}]]))))
 
+(defn wall-for-direction
+  [dir {:keys [height width x y] :as square-props}]
+  {:height (if (#{:north :south} dir) (* 0.05 height) height)
+   :width  (if (#{:east :west} dir) (* 0.05 width) width)
+   :x      (if (#{:north :west :south} dir) x (- x width))
+   :y      (if (#{:north :west :east} dir) y (- y height))})
+
+(defn walls-renderer
+  [{:keys [walls]} square-props]
+  (when (seq walls)
+    (fn []
+      (let []
+        [k/group
+         (for [dir walls]
+           ^{:key (str (name dir) "-" (:y square-props))}
+           [k/rect (merge
+                     (wall-for-direction dir square-props)
+                     {:stroke "black" :stroke-width 1
+                           :fill   "#676767"})])]))))
 
 ;;TODO pick some better colours
 (def bay-colours ["orange" "red" "blue" "green" "purple"])
@@ -154,6 +173,7 @@
                 repair-renderer
                 pit-renderer
                 belt-renderer
+                walls-renderer
                 docking-bay-renderer])
 
 (defn square-renderers
