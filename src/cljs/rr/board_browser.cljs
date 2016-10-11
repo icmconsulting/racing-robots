@@ -23,10 +23,20 @@
         {:width  optimal-width
          :height (* rows row-height)}))))
 
-(def base-square-image
+(defn image-obj
+  [src]
   (let [obj (js/Image.)]
-    (set! obj -src "/images/floor-tile.jpg")
+    (set! obj -src src)
     obj))
+
+(def base-square-image (image-obj "/images/floor-tile.jpg"))
+(def flag-image (image-obj "/images/flag.png"))
+(def repair-image (image-obj "/images/repair.png"))
+(def pit-image (image-obj "/images/pit.jpg"))
+(def belt-arrow-image (image-obj "/images/belt-arrow.png"))
+(def belt-tubes-pattern-image (image-obj "/images/belt-tubes-pattern.jpg"))
+
+(def safety-colour "#A8DB92")
 
 (defn board-list
   [selected-board]
@@ -54,33 +64,96 @@
              :height height :width height
              :stroke "#ffffff" :stroke-width 1}]))
 
+(defn repair-renderer
+  [{:keys [repair]} {:keys [height width x y]}]
+  (when repair
+    (fn []
+      [k/image {:height height
+                :width  height
+                :image  repair-image
+                :x      x
+                :y      y }])))
+
+(defn pit-renderer
+  [{:keys [pit]} {:keys [height width x y]}]
+  (when pit
+    (fn []
+      [k/image {:height height
+                :width  height
+                :image  pit-image
+                :x      x
+                :y      y}])))
+
+(def arrow-adjustment
+  {:north [270 {:x 0.2 :y 1}]
+   :east [0 {:y 0.2}]
+   :south [90 {:x 0.8 :y 0}]
+   :west [180 {:y 0.8 :x 1}]})
+
+(defn belt-renderer
+  [{:keys [belt]} {:keys [height width x y]}]
+  (when belt
+    (fn []
+      (let [[belt-direction express?] belt
+            [rot position-adj] (arrow-adjustment belt-direction)]
+        [k/group
+         [k/rect {:x x :y y
+                  :height height :width width
+                  :fill-pattern-image belt-tubes-pattern-image
+                  :fill-pattern-rotation rot
+                  :fill-pattern-repeat "repeat-x"
+                  :fill-pattern-scale-x (/ width 560)
+                  :fill-pattern-scale-y (/ height 300)}]
+         [k/image {:height   (* 0.6 height)
+                   :width    width
+                   :image    belt-arrow-image
+                   :x        (+ x (* width (:x position-adj 0)))
+                   :y        (+ y (* height (:y position-adj 0)))
+                   :rotation rot
+                   :fill     "#676767"}]]))))
+
+
 ;;TODO pick some better colours
-(def flag-colours ["orange" "red" "blue" "green" "purple"])
+(def bay-colours ["orange" "red" "blue" "green" "purple"])
+
+(defn docking-bay-renderer
+  [{:keys [docking-bay] :as s} {:keys [height width x y]}]
+  (when (and docking-bay (pos? width))
+    (fn []
+      (let [half-width (/ width 2)
+            radius (- half-width 1)]
+        [k/circle {:radius       radius
+                   :x            (+ x half-width)
+                   :y            (+ y (/ height 2))
+                   :fill         (get bay-colours docking-bay)
+                   :stroke       "black"
+                   :stroke-width 1}]))))
+
 
 (defn flag-renderer
   [{:keys [flag] :as s} {:keys [height width x y]}]
   (when (and flag (pos? width))
     (fn []
       [k/group
-       (let [half-width (/ width 2)
-             radius (- half-width 1)]
-         [k/circle {:radius       radius
-                    :x            (+ x half-width)
-                    :y            (+ y (/ height 2))
-                    :fill         (get flag-colours (dec flag))
-                    :stroke       "black"
-                    :stroke-width 1}])
-       [k/text {:x (+ x (/ width 4))
+       [k/image {:height height
+                 :width  height
+                 :image  flag-image
+                 :x      x
+                 :y      y }]
+       [k/text {:x (+ x (/ width 3))
                 :y (+ y (/ height 10))
                 :text (str flag)
-                :font-size (* height 0.8)
+                :font-size (* height 0.5)
                 :font-family "Courier"
                 :fill "white"}]])))
 
 (def renderers [base-renderer
                 outline-renderer
                 flag-renderer
-                ])
+                repair-renderer
+                pit-renderer
+                belt-renderer
+                docking-bay-renderer])
 
 (defn square-renderers
   [square props]

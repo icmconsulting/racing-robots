@@ -34,12 +34,12 @@
      (include-js "/js/app_devcards.js")]))
 
 (defroutes routes
-  (GET "/" [] (loading-page))
-  (GET "/newgame" [] (loading-page))
-  (GET "/boards" [] (loading-page))
+           (GET "/" [] (loading-page))
+           (GET "/newgame" [] (loading-page))
+           (GET "/boards" [] (loading-page))
            (GET "/boards/*" [] (loading-page))
-  (GET "/cards" [] (cards-page))
-  (resources "/")
-  (not-found "Not Found"))
+           (GET "/cards" [] (cards-page))
+           (resources "/")
+           (not-found "Not Found"))
 
 (def app (wrap-middleware #'routes))
