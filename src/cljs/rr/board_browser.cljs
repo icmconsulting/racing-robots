@@ -148,16 +148,16 @@
                      {:fill   "#676767"})])]))))
 
 (defn laser-points
-  [laser-wall num laser-squares {:keys [height width x y]}]
+  [laser-wall total-number num laser-squares {:keys [height width x y]}]
   (let [wall-width (* width wall-square-ratio)]
     (case laser-wall
-      :north (let [x (+ x (/ width (inc num)))]
+      :north (let [x (+ x (* num (/ width (inc total-number))))]
                [x y x (- (+ y (* (count laser-squares) height)) wall-width)])
-      :south (let [x (+ x (/ width (inc num)))]
+      :south (let [x (+ x (* num (/ width (inc total-number))))]
                [x (+ y height) x (+ (- y (* (count laser-squares) height)) wall-width)])
-      :east (let [y (+ y (/ height (inc num)))]
+      :east (let [y (+ y (* num (/ height (inc total-number))))]
               [(+ x width) y (+ (- (+ x width) (* (count laser-squares) width)) wall-width) y])
-      :west (let [y (+ y (/ height (inc num)))]
+      :west (let [y (+ y (* num (/ height (inc total-number))))]
               [x y (- (+ x (* (count laser-squares) width)) wall-width) y]))))
 
 (def laser-width-ratio 0.1)
@@ -167,7 +167,6 @@
   (when-let [[laser-wall num] laser]
     (fn []
       (let [laser-direction (get-in game/rotate-delta [:u-turn laser-wall])
-            _ (println "DIR:" laser-direction)
             laser-squares (game/square-seq board position laser-direction)
             laser-squares (reduce
                             (fn [squares [_ square]]
@@ -176,16 +175,15 @@
                                     (game/can-laser-pass-into-square? square laser-direction))
                                 (conj squares square)
                                 (reduced squares)))
-                            [(last (first laser-squares))] (rest laser-squares))
-            _ (println ">>>" (count laser-squares) (laser-points laser-wall num laser-squares props))]
-        [k/line {:stroke       "red"
-                 :stroke-width (* width laser-width-ratio)
-                 :opacity 0.5
-                 :points (laser-points laser-wall num laser-squares props)}]))))
+                            [(last (first laser-squares))] (rest laser-squares))]
+        [k/group
+         (for [laser-num (range num)]
+           ^{:key (str position laser-num)}
+           [k/line {:stroke       "red"
+                    :stroke-width (* width laser-width-ratio)
+                    :opacity      0.5
+                    :points       (laser-points laser-wall num (inc laser-num) laser-squares props)}])]))))
 
-
-;;TODO pick some better colours
-(def bay-colours ["orange" "red" "blue" "green" "purple"])
 
 (defn docking-bay-renderer
   [{:keys [docking-bay] :as s} {:keys [height width x y]}]
@@ -225,19 +223,20 @@
                 :font-family "Courier"
                 :fill "white"}]])))
 
-(def renderers [base-renderer
-                outline-renderer
-                flag-renderer
-                repair-renderer
-                pit-renderer
-                belt-renderer
-                walls-renderer
-                rotator-renderer
-                laser-renderer
-                docking-bay-renderer])
+(def bottom-renderers [base-renderer
+                       outline-renderer
+                       flag-renderer
+                       repair-renderer
+                       pit-renderer
+                       belt-renderer
+                       walls-renderer
+                       rotator-renderer
+                       docking-bay-renderer])
+
+(def top-renderers [laser-renderer])
 
 (defn square-renderers
-  [square props]
+  [renderers square props]
   (let [renderers-to-apply (keep #(% square props) renderers)]
     (map-indexed (fn [idx r]
                    ^{:key idx}
@@ -245,19 +244,21 @@
                  renderers-to-apply)))
 
 (defn board-row
-  [board row-idx height y row]
+  [renderers board row-idx height y row]
   ^{:key (str y)}
   [k/group
    (map-indexed
      (fn [idx square]
        (let [x (* idx height)]
          ^{:key (str idx "-" y)}
-         [k/group (square-renderers square {:board board
-                                            :width height
-                                            :height height
-                                            :x x
-                                            :y y
-                                            :position [idx row-idx]})]))
+         [k/group (square-renderers renderers
+                                    square
+                                    {:board    board
+                                     :width    height
+                                     :height   height
+                                     :x        x
+                                     :y        y
+                                     :position [idx row-idx]})]))
      row)])
 
 (defn board-view
@@ -269,8 +270,15 @@
      [k/layer
       [k/group
        (map-indexed (fn [idx row]
-                      ^{:key idx} [board-row board idx row-height (* idx row-height) row])
-                    rows)]]]))
+                      ^{:key idx} [board-row bottom-renderers board idx row-height (* idx row-height) row])
+                    rows)]
+      ;; apply lasers over the top
+      [k/group
+       (map-indexed (fn [idx row]
+                      ^{:key idx} [board-row top-renderers board idx row-height (* idx row-height) row])
+                    rows)
+       ]
+      ]]))
 
 (defn selected-board-view
   [selected-board]
