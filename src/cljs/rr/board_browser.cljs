@@ -30,12 +30,15 @@
     obj))
 
 (def base-square-image (image-obj "/images/floor-tile.jpg"))
+(def base-square-image-rivets (image-obj "/images/floor-rivets.jpg"))
 (def flag-image (image-obj "/images/flag.png"))
 (def repair-image (image-obj "/images/repair.png"))
 (def pit-image (image-obj "/images/pit.jpg"))
 (def belt-arrow-image (image-obj "/images/belt-arrow.png"))
 (def belt-express-arrow-image (image-obj "/images/belt-express-arrow.png"))
 (def belt-tubes-pattern-image (image-obj "/images/belt-tubes-pattern.jpg"))
+(def rotate-right-image (image-obj "/images/rotate-right.png"))
+(def rotate-left-image (image-obj "/images/rotate-left.png"))
 
 (def safety-colour "#A8DB92")
 
@@ -54,7 +57,7 @@
   (fn []
     [k/image {:height height
               :width  height
-              :image  base-square-image
+              :image  base-square-image-rivets
               :x      x
               :y      y}]))
 
@@ -69,11 +72,11 @@
   [{:keys [repair]} {:keys [height width x y]}]
   (when repair
     (fn []
-      [k/image {:height height
-                :width  height
+      [k/image {:height (* height 0.7)
+                :width  (* width 0.7)
                 :image  repair-image
-                :x      x
-                :y      y }])))
+                :x      (+ x (* width 0.15))
+                :y      (+ y (* height 0.15)) }])))
 
 (defn pit-renderer
   [{:keys [pit]} {:keys [height width x y]}]
@@ -82,6 +85,16 @@
       [k/image {:height height
                 :width  height
                 :image  pit-image
+                :x      x
+                :y      y}])))
+
+(defn rotator-renderer
+  [{:keys [rotator]} {:keys [height width x y]}]
+  (when rotator
+    (fn []
+      [k/image {:height height
+                :width  height
+                :image  (if (= :left rotator) rotate-left-image rotate-right-image)
                 :x      x
                 :y      y}])))
 
@@ -115,10 +128,10 @@
 
 (defn wall-for-direction
   [dir {:keys [height width x y] :as square-props}]
-  {:height (if (#{:north :south} dir) (* 0.05 height) height)
-   :width  (if (#{:east :west} dir) (* 0.05 width) width)
-   :x      (if (#{:north :west :south} dir) x (- x width))
-   :y      (if (#{:north :west :east} dir) y (- y height))})
+  {:height (if (#{:north :south} dir) (* 0.15 height) height)
+   :width  (if (#{:east :west} dir) (* 0.15 width) width)
+   :x      (if (#{:north :west :south} dir) x (+ x (- width (* 0.15 width))))
+   :y      (if (#{:north :west :east} dir) y (+ y (- height (* 0.15 height))))})
 
 (defn walls-renderer
   [{:keys [walls]} square-props]
@@ -130,8 +143,7 @@
            ^{:key (str (name dir) "-" (:y square-props))}
            [k/rect (merge
                      (wall-for-direction dir square-props)
-                     {:stroke "black" :stroke-width 1
-                           :fill   "#676767"})])]))))
+                     {:fill   "#676767"})])]))))
 
 ;;TODO pick some better colours
 (def bay-colours ["orange" "red" "blue" "green" "purple"])
@@ -141,13 +153,20 @@
   (when (and docking-bay (pos? width))
     (fn []
       (let [half-width (/ width 2)
-            radius (- half-width 1)]
-        [k/circle {:radius       radius
-                   :x            (+ x half-width)
-                   :y            (+ y (/ height 2))
-                   :fill         (get bay-colours docking-bay)
-                   :stroke       "black"
-                   :stroke-width 1}]))))
+            radius (- (/ width 3) 1)]
+        [k/group
+         [k/circle {:radius       radius
+                    :x            (+ x half-width)
+                    :y            (+ y (/ height 2))
+                    :fill         "#7B808E"
+                    :stroke       "black"
+                    :stroke-width 1}]
+         [k/text {:x (+ x (/ width 2.5))
+                  :y (+ y (/ height 3.25))
+                  :text (str docking-bay)
+                  :font-size (* height 0.4)
+                  :font-family "Courier"
+                  :fill "black"}]]))))
 
 
 (defn flag-renderer
@@ -174,6 +193,7 @@
                 pit-renderer
                 belt-renderer
                 walls-renderer
+                rotator-renderer
                 docking-bay-renderer])
 
 (defn square-renderers
