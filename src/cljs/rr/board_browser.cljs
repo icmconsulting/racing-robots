@@ -39,6 +39,7 @@
 (def belt-tubes-pattern-image (image-obj "/images/belt-tubes-pattern.jpg"))
 (def rotate-right-image (image-obj "/images/rotate-right.png"))
 (def rotate-left-image (image-obj "/images/rotate-left.png"))
+(def laser-point-image (image-obj "/images/laser-point.png"))
 
 (def safety-colour "#A8DB92")
 
@@ -147,18 +148,24 @@
                      (wall-for-direction dir square-props)
                      {:fill   "#676767"})])]))))
 
+(def laser-shooter-adjustment
+  {:north [0 {:x 0.1 :y 0}]
+   :east [90 {:y 0.1 :x 0}]
+   :south [180 {:x -0.1 :y 0}]
+   :west [270 {:y -0.1 :x 0}]})
+
 (defn laser-points
   [laser-wall total-number num laser-squares {:keys [height width x y]}]
   (let [wall-width (* width wall-square-ratio)]
     (case laser-wall
       :north (let [x (+ x (* num (/ width (inc total-number))))]
-               [x y x (- (+ y (* (count laser-squares) height)) wall-width)])
+               [x (+ y wall-width) x (- (+ y (* (count laser-squares) height)) wall-width)])
       :south (let [x (+ x (* num (/ width (inc total-number))))]
-               [x (+ y height) x (+ (- y (* (count laser-squares) height)) wall-width)])
+               [x (- (+ y height) wall-width) x (+ (- y (* (count laser-squares) height)) wall-width)])
       :east (let [y (+ y (* num (/ height (inc total-number))))]
-              [(+ x width) y (+ (- (+ x width) (* (count laser-squares) width)) wall-width) y])
+              [(- (+ x width) wall-width) y (+ (- (+ x width) (* (count laser-squares) width)) wall-width) y])
       :west (let [y (+ y (* num (/ height (inc total-number))))]
-              [x y (- (+ x (* (count laser-squares) width)) wall-width) y]))))
+              [(+ x wall-width) y (- (+ x (* (count laser-squares) width)) wall-width) y]))))
 
 (def laser-width-ratio 0.1)
 
@@ -175,14 +182,25 @@
                                     (game/can-laser-pass-into-square? square laser-direction))
                                 (conj squares square)
                                 (reduced squares)))
-                            [(last (first laser-squares))] (rest laser-squares))]
+                            [(last (first laser-squares))] (rest laser-squares))
+            [rotation {dx :x dy :y}] (laser-shooter-adjustment laser-wall)]
         [k/group
          (for [laser-num (range num)]
-           ^{:key (str position laser-num)}
-           [k/line {:stroke       "red"
-                    :stroke-width (* width laser-width-ratio)
-                    :opacity      0.5
-                    :points       (laser-points laser-wall num (inc laser-num) laser-squares props)}])]))))
+           (let [laser-points (laser-points laser-wall num (inc laser-num) laser-squares props)]
+             ^{:key (str position laser-num)}
+             [k/group
+              [k/line {:stroke       "red"
+                       :stroke-width (* width laser-width-ratio)
+                       :opacity      0.5
+                       :points       laser-points}]
+              ;;TODO: fix this up....
+              [k/image {:height   (* 0.2 height)
+                        :width    (* 0.2 width)
+                        :image    laser-point-image
+                        :x        (- (first laser-points) (* (or dx 0) width))
+                        :y        (- (second laser-points) (* (or dy 0) height))
+                        :rotation rotation}]
+              ]))]))))
 
 
 (defn docking-bay-renderer
@@ -302,7 +320,9 @@
 
 (def middle-section
   (with-meta middle-section*
-             {:component-did-mount #(.addEventListener js/window "resize" (partial on-window-resize (dom-node %)))
+             {:component-did-mount    #(do
+                                        (on-window-resize (dom-node %) nil)
+                                        (.addEventListener js/window "resize" (partial on-window-resize (dom-node %))))
               :component-will-unmount #(.removeEventListener js/window "resize" (partial on-window-resize (dom-node %)))}))
 
 
