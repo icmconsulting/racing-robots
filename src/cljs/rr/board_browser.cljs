@@ -162,7 +162,8 @@
       :north (let [x (+ x (* num (/ width (inc total-number))))]
                [x (+ y wall-width) x (- (+ y (* (count laser-squares) height)) wall-width)])
       :south (let [x (+ x (* num (/ width (inc total-number))))]
-               [x (- (+ y height) wall-width) x (+ (- y (* (count laser-squares) height)) wall-width)])
+               (println x height (* (count laser-squares) height) y (- y (* (count laser-squares) height)) wall-width)
+               [x (- (+ y height) wall-width) x (+ (- (+ y height) (* (count laser-squares) height)) wall-width)])
       :east (let [y (+ y (* num (/ height (inc total-number))))]
               [(- (+ x width) wall-width) y (+ (- (+ x width) (* (count laser-squares) width)) wall-width) y])
       :west (let [y (+ y (* num (/ height (inc total-number))))]
@@ -179,29 +180,31 @@
             laser-squares (reduce
                             (fn [squares [_ square]]
                               (if (and
-                                    (game/can-laser-pass-out-of-square? (last squares) laser-direction)
-                                    (game/can-laser-pass-into-square? square laser-direction))
+                                    (game/can-laser-pass-into-square? square laser-direction)
+                                    (game/can-laser-pass-out-of-square? (last squares) laser-direction))
                                 (conj squares square)
                                 (reduced squares)))
                             [(last (first laser-squares))] (rest laser-squares))
             [rotation {dx :x dy :y}] (laser-shooter-adjustment laser-wall)]
         [k/group
          (for [laser-num (range num)]
-           (let [laser-points (laser-points laser-wall num (inc laser-num) laser-squares props)]
-             ^{:key (str position laser-num)}
-             [k/group
-              [k/line {:stroke       "red"
-                       :stroke-width (* width laser-width-ratio)
-                       :opacity      0.5
-                       :points       laser-points}]
-              ;;TODO: fix this up....
-              [k/image {:height   (* 0.2 height)
-                        :width    (* 0.2 width)
-                        :image    laser-point-image
-                        :x        (- (first laser-points) (* (or dx 0) width))
-                        :y        (- (second laser-points) (* (or dy 0) height))
-                        :rotation rotation}]
-              ]))]))))
+           (do
+             (when (= position [3 6]) (println (count laser-squares)
+                                               (laser-points laser-wall num (inc laser-num) laser-squares props)))
+             (let [laser-points (laser-points laser-wall num (inc laser-num) laser-squares props)]
+               ^{:key (str position laser-num)}
+               [k/group
+                [k/line {:stroke       "red"
+                         :stroke-width (* width laser-width-ratio)
+                         :opacity      0.5
+                         :points       laser-points}]
+                [k/image {:height   (* 0.2 height)
+                          :width    (* 0.2 width)
+                          :image    laser-point-image
+                          :x        (- (first laser-points) (* (or dx 0) width))
+                          :y        (- (second laser-points) (* (or dy 0) height))
+                          :rotation rotation}]
+                ])))]))))
 
 (defonce highlighted-square (atom nil))
 
