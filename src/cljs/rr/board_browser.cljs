@@ -162,7 +162,6 @@
       :north (let [x (+ x (* num (/ width (inc total-number))))]
                [x (+ y wall-width) x (- (+ y (* (count laser-squares) height)) wall-width)])
       :south (let [x (+ x (* num (/ width (inc total-number))))]
-               (println x height (* (count laser-squares) height) y (- y (* (count laser-squares) height)) wall-width)
                [x (- (+ y height) wall-width) x (+ (- (+ y height) (* (count laser-squares) height)) wall-width)])
       :east (let [y (+ y (* num (/ height (inc total-number))))]
               [(- (+ x width) wall-width) y (+ (- (+ x width) (* (count laser-squares) width)) wall-width) y])
@@ -188,23 +187,20 @@
             [rotation {dx :x dy :y}] (laser-shooter-adjustment laser-wall)]
         [k/group
          (for [laser-num (range num)]
-           (do
-             (when (= position [3 6]) (println (count laser-squares)
-                                               (laser-points laser-wall num (inc laser-num) laser-squares props)))
-             (let [laser-points (laser-points laser-wall num (inc laser-num) laser-squares props)]
-               ^{:key (str position laser-num)}
-               [k/group
-                [k/line {:stroke       "red"
-                         :stroke-width (* width laser-width-ratio)
-                         :opacity      0.5
-                         :points       laser-points}]
-                [k/image {:height   (* 0.2 height)
-                          :width    (* 0.2 width)
-                          :image    laser-point-image
-                          :x        (- (first laser-points) (* (or dx 0) width))
-                          :y        (- (second laser-points) (* (or dy 0) height))
-                          :rotation rotation}]
-                ])))]))))
+           (let [laser-points (laser-points laser-wall num (inc laser-num) laser-squares props)]
+             ^{:key (str position laser-num)}
+             [k/group
+              [k/line {:stroke       "red"
+                       :stroke-width (* width laser-width-ratio)
+                       :opacity      0.5
+                       :points       laser-points}]
+              [k/image {:height   (* 0.2 height)
+                        :width    (* 0.2 width)
+                        :image    laser-point-image
+                        :x        (- (first laser-points) (* (or dx 0) width))
+                        :y        (- (second laser-points) (* (or dy 0) height))
+                        :rotation rotation}]
+              ]))]))))
 
 (defonce highlighted-square (atom nil))
 
@@ -277,55 +273,56 @@
                  renderers-to-apply)))
 
 (defn highlight-square
-  [position square]
-  (reset! highlighted-square [position square]))
+  [selected-board position square]
+  (swap! selected-board assoc-in [2] [position square]))
 
 (defn board-row
-  [renderers board row-idx height y row]
-  (let [highlighted (first @highlighted-square)]
-    ^{:key (str y)}
-    [k/group
-     (map-indexed
-       (fn [idx square]
-         (let [x (* idx height)
-               position [idx row-idx]]
-           ^{:key (str idx "-" y)}
-           [k/group
-            {:on-click (partial highlight-square position square)
-             :on-touch (partial highlight-square position square)}
-            (square-renderers renderers
-                              square
-                              {:board      board
-                               :width      height
-                               :height     height
-                               :x          x
-                               :y          y
-                               :position   position
-                               :highlight? (= position highlighted)})]))
-       row)]))
+  [renderers board highlight-fn [highlighted] row-idx height y row]
+  ^{:key (str y)}
+  [k/group
+   (map-indexed
+     (fn [idx square]
+       (let [x (* idx height)
+             position [idx row-idx]]
+         ^{:key (str idx "-" y)}
+         [k/group
+          {:on-click (partial highlight-fn position square)
+           :on-touch (partial highlight-fn position square)}
+          (square-renderers renderers
+                            square
+                            {:board      board
+                             :width      height
+                             :height     height
+                             :x          x
+                             :y          y
+                             :position   position
+                             :highlight? (= position highlighted)})]))
+     row)])
 
 (defn board-view
-  [board]
-  (let [rows (game/rows board)
+  [selected-board]
+  (let [[_ {:keys [board]} highlighted] @selected-board
+        rows (game/rows board)
         {board-width :width board-height :height} (calculate-optimal-board-size @board-size board)
-        row-height (/ board-height (count rows))]
+        row-height (/ board-height (count rows))
+        highlight-square-fn (partial highlight-square selected-board)]
     [k/stage {:ref "board" :width board-width :height board-height :container "board-section"}
      [k/layer
       [k/group
        (map-indexed (fn [idx row]
-                      ^{:key idx} [board-row bottom-renderers board idx row-height (* idx row-height) row])
+                      ^{:key idx} [board-row bottom-renderers board highlight-square-fn highlighted idx row-height (* idx row-height) row])
                     rows)]]
      [k/layer
       ;; apply lasers over the top
       [k/group
        (map-indexed (fn [idx row]
-                      ^{:key idx} [board-row top-renderers board idx row-height (* idx row-height) row])
+                      ^{:key idx} [board-row top-renderers board highlight-square-fn highlighted idx row-height (* idx row-height) row])
                     rows)]]]))
 
 (defn selected-board-view
   [selected-board]
   (if @selected-board
-    [board-view (get (second @selected-board) :board)]
+    [board-view selected-board]
     [:div.no-board-selected [:p "Select a board to view from the board list on the left."]]))
 
 (defn middle-section*
@@ -353,32 +350,33 @@
 (defn square-info
   [selected-board]
   (when @selected-board
-    (if-let [[[x y] square] @highlighted-square]
-      (into [:dl [:dt "Square coordinates"] [:dd (str "[" x "," y "]")]]
-            (concat (when-let [db (:docking-bay square)]
-                      [[:dt "Docking bay number"] [:dd db]])
-                    (when-let [walls (seq (:walls square))]
-                      [[:dt "Walls"] [:dd (clojure.string/join "," (map name walls))]])
-                    (when-let [[laser-wall num] (:laser square)]
-                      [[:dt "Laser"] [:dd num " laser, on the " (name laser-wall) " wall"]])
-                    (when-let [[belt-dir express?] (:belt square)]
-                      [[:dt "Conveyer belt"] [:dd (when express? "Express belt, ") "travelling " (name belt-dir)]])
-                    (when-let [rot (:rotator square)]
-                      [[:dt "Rotator"] [:dd "Rotates " (name rot)]])
-                    (when-let [flag (:flag square)]
-                      [[:dt "Victory flag"] [:dd "Flag number " flag]
-                       [:dt "Archive marker compatable?"] [:dd "Yes"]])
-                    (when-let [pit (:pit square)]
-                      [[:dt "Pit"] [:dd (rand-nth ["Certain death" "Try it" "An abyss" "The dark expanse is tempting. Try me."
-                                                   "Seems like it goes on forever" "Like I like my Saturday Cartoons...dark"])]])
-                    (when-let [repair (:repair square)]
-                      [[:dt "Repair stop"] [:dd "Juice up here"]
-                       [:dt "Archive marker compatable?"] [:dd "Yes"]])))
-      [:p "Board Square Inspector: click a square on the board to see attributes of a square"])))
+    (let [[_ _ highlighted] @selected-board]
+      (if-let [[[x y] square] highlighted]
+        (into [:dl [:dt "Square coordinates"] [:dd (str "[" x "," y "]")]]
+              (concat (when-let [db (:docking-bay square)]
+                        [[:dt "Docking bay number"] [:dd db]])
+                      (when-let [walls (seq (:walls square))]
+                        [[:dt "Walls"] [:dd (clojure.string/join "," (map name walls))]])
+                      (when-let [[laser-wall num] (:laser square)]
+                        [[:dt "Laser"] [:dd num " laser, on the " (name laser-wall) " wall"]])
+                      (when-let [[belt-dir express?] (:belt square)]
+                        [[:dt "Conveyer belt"] [:dd (when express? "Express belt, ") "travelling " (name belt-dir)]])
+                      (when-let [rot (:rotator square)]
+                        [[:dt "Rotator"] [:dd "Rotates " (name rot)]])
+                      (when-let [flag (:flag square)]
+                        [[:dt "Victory flag"] [:dd "Flag number " flag]
+                         [:dt "Archive marker compatable?"] [:dd "Yes"]])
+                      (when-let [pit (:pit square)]
+                        [[:dt "Pit"] [:dd (rand-nth ["Certain death" "Try it" "An abyss" "The dark expanse is tempting. Try me."
+                                                     "Seems like it goes on forever" "Like I like my Saturday Cartoons...dark"])]])
+                      (when-let [repair (:repair square)]
+                        [[:dt "Repair stop"] [:dd "Juice up here"]
+                         [:dt "Archive marker compatable?"] [:dd "Yes"]])))
+        [:p "Board Square Inspector: click a square on the board to see attributes of a square"]))))
 
 (defn board-browser-root
   [id?]
-  (let [selected-board (atom (when id? [id? (get boards/all-available-boards id?)]))]
+  (let [selected-board (atom (when id? [id? (get boards/all-available-boards id?) nil]))]
     (fn [_]
       [:section.board-browser-root
        [:section.left [board-list selected-board]]
