@@ -5,9 +5,7 @@
             [reagent.core :refer [atom dom-node]]
             [rr.konva :as k]))
 
-;;TODO: tweak these
-
-(def board-size (atom {:width 1000 :height 450}))
+(defonce board-size (atom {:width 1000 :height 450}))
 
 (defn calculate-optimal-board-size
   [viewport-size board]
@@ -65,9 +63,12 @@
 (defn outline-renderer
   [_ {:keys [height width x y]}]
   (fn []
-    [k/rect {:x      x :y y
-             :height height :width height
-             :stroke "#ffffff" :stroke-width 1}]))
+    [k/rect {:x            x
+             :y            y
+             :height       height
+             :width        width
+             :stroke       "#ffffff"
+             :stroke-width 1}]))
 
 (defn repair-renderer
   [{:keys [repair]} {:keys [height width x y]}]
@@ -202,6 +203,17 @@
                         :rotation rotation}]
               ]))]))))
 
+(defonce highlighted-square (atom nil))
+
+(defn highlight-renderer
+  [_ {:keys [height width x y highlight?]}]
+  (when highlight?
+    (fn []
+      [k/rect {:x            x :y y
+               :height       height :width width
+               :stroke       "red"
+               :stroke-width 2}])))
+
 
 (defn docking-bay-renderer
   [{:keys [docking-bay] :as s} {:keys [height width x y]}]
@@ -251,7 +263,7 @@
                        rotator-renderer
                        docking-bay-renderer])
 
-(def top-renderers [laser-renderer])
+(def top-renderers [laser-renderer highlight-renderer])
 
 (defn square-renderers
   [renderers square props]
@@ -261,23 +273,33 @@
                    [r])
                  renderers-to-apply)))
 
+(defn highlight-square
+  [position square]
+  (reset! highlighted-square [position square]))
+
 (defn board-row
   [renderers board row-idx height y row]
-  ^{:key (str y)}
-  [k/group
-   (map-indexed
-     (fn [idx square]
-       (let [x (* idx height)]
-         ^{:key (str idx "-" y)}
-         [k/group (square-renderers renderers
-                                    square
-                                    {:board    board
-                                     :width    height
-                                     :height   height
-                                     :x        x
-                                     :y        y
-                                     :position [idx row-idx]})]))
-     row)])
+  (let [highlighted (first @highlighted-square)]
+    ^{:key (str y)}
+    [k/group
+     (map-indexed
+       (fn [idx square]
+         (let [x (* idx height)
+               position [idx row-idx]]
+           ^{:key (str idx "-" y)}
+           [k/group
+            {:on-click (partial highlight-square position square)
+             :on-touch (partial highlight-square position square)}
+            (square-renderers renderers
+                              square
+                              {:board      board
+                               :width      height
+                               :height     height
+                               :x          x
+                               :y          y
+                               :position   position
+                               :highlight? (= position highlighted)})]))
+       row)]))
 
 (defn board-view
   [board]
@@ -289,14 +311,13 @@
       [k/group
        (map-indexed (fn [idx row]
                       ^{:key idx} [board-row bottom-renderers board idx row-height (* idx row-height) row])
-                    rows)]
+                    rows)]]
+     [k/layer
       ;; apply lasers over the top
       [k/group
        (map-indexed (fn [idx row]
                       ^{:key idx} [board-row top-renderers board idx row-height (* idx row-height) row])
-                    rows)
-       ]
-      ]]))
+                    rows)]]]))
 
 (defn selected-board-view
   [selected-board]
@@ -326,9 +347,31 @@
               :component-will-unmount #(.removeEventListener js/window "resize" (partial on-window-resize (dom-node %)))}))
 
 
-(defn board-info
-  []
-  )
+(defn square-info
+  [selected-board]
+  (when @selected-board
+    (if-let [[[x y] square] @highlighted-square]
+      (into [:dl [:dt "Square coordinates"] [:dd (str "[" x "," y "]")]]
+            (concat (when-let [db (:docking-bay square)]
+                      [[:dt "Docking bay number"] [:dd db]])
+                    (when-let [walls (seq (:walls square))]
+                      [[:dt "Walls"] [:dd (clojure.string/join "," (map name walls))]])
+                    (when-let [[laser-wall num] (:laser square)]
+                      [[:dt "Laser"] [:dd num " laser, on the " (name laser-wall) " wall"]])
+                    (when-let [[belt-dir express?] (:belt square)]
+                      [[:dt "Conveyer belt"] [:dd (when express? "Express belt, ") "travelling " (name belt-dir)]])
+                    (when-let [rot (:rotator square)]
+                      [[:dt "Rotator"] [:dd "Rotates " (name rot)]])
+                    (when-let [flag (:flag square)]
+                      [[:dt "Victory flag"] [:dd "Flag number " flag]
+                       [:dt "Archive marker compatable?"] [:dd "Yes"]])
+                    (when-let [pit (:pit square)]
+                      [[:dt "Pit"] [:dd (rand-nth ["Certain death" "Try it" "An abyss" "The dark expanse is tempting. Try me."
+                                                   "Seems like it goes on forever" "Like I like my Saturday Cartoons...dark"])]])
+                    (when-let [repair (:repair square)]
+                      [[:dt "Repair stop"] [:dd "Juice up here"]
+                       [:dt "Archive marker compatable?"] [:dd "Yes"]])))
+      [:p "Board Square Inspector: click a square on the board to see attributes of a square"])))
 
 (defn board-browser-root
   [id?]
@@ -337,5 +380,5 @@
       [:section.board-browser-root
        [:section.left [board-list selected-board]]
        [middle-section selected-board]
-       [:section.right [board-info]]])))
+       [:section.right [square-info selected-board]]])))
 
