@@ -14,3 +14,19 @@
 ;; list groups
 (def list-group (adapt-react-class js/ReactBootstrap.ListGroup))
 (def list-group-item (adapt-react-class js/ReactBootstrap.ListGroupItem))
+
+;; panels
+(def panel (adapt-react-class js/ReactBootstrap.Panel))
+
+;; forms
+(def form-group (adapt-react-class js/ReactBootstrap.FormGroup))
+(def form-control (adapt-react-class js/ReactBootstrap.FormControl))
+(def control-label (adapt-react-class js/ReactBootstrap.ControlLabel))
+(def help-block (adapt-react-class js/ReactBootstrap.HelpBlock))
+(def button (adapt-react-class js/ReactBootstrap.Button))
+(def radio (adapt-react-class js/ReactBootstrap.Radio))
+
+;; other layouts
+(def well (adapt-react-class js/ReactBootstrap.Well))
+
+

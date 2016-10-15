@@ -382,4 +382,3 @@
        [:section.left [board-list selected-board]]
        [middle-section selected-board]
        [:section.right [square-info selected-board]]])))
-
