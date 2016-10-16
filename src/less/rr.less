@@ -98,6 +98,33 @@ button, input, select {
 
     .game-viewer-root {
       .three-column-flex();
+
+      .left, .right {
+
+        .score-sheet {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          align-content: space-between;
+
+          .player-score-sheet {
+            width: 100%;
+            max-height: 50%;
+            min-height: 25%;
+            flex-grow: 1;
+
+            &.top-left, &.top-right {
+              align-self: flex-start;
+            }
+
+            &.bottom-left, &.bottom-right {
+              align-self: flex-end;
+            }
+          }
+        }
+
+      }
     }
 
     .board-browser-root {

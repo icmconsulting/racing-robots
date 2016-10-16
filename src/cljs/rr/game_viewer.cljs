@@ -4,7 +4,8 @@
             [rr.bs :as bs]
             [rr.bots :as bots]
             [rr.boards :as boards]
-            [rr.game :as game]))
+            [rr.game :as game]
+            [rr.runner :as runner]))
 
 (def empty-game {:new-game {:players [{} {} {} {}] :state :not-started :board :random}})
 (defonce game-state (atom empty-game))
@@ -34,10 +35,24 @@
     (assoc-in game-state [:new-game :players player-num :port] port-number)
     (update-in game-state [:new-game :players player-num] dissoc :port)))
 
+(defn apply-player-bot
+  [{:keys [player-type] :as player}]
+  ;; TODO: create player ai bots
+  (when-let [cpu-bot (bots/local-bots player-type)]
+    cpu-bot))
+
+(defn kw->board
+  [board]
+  (get boards/all-available-boards
+       (if (= :random board)
+         (rand-nth (keys boards/all-available-boards))
+         board)))
+
 (defmethod dispatch-event-type :start-game!
   [game-state _]
-
-  )
+  (let [players (map apply-player-bot (get-in game-state [:new-game :players]))
+        board (kw->board (get-in game-state [:new-game :board]))]
+    {:game (runner/start-new-game {:players players :board (:board board)})}))
 
 (defn dispatch!
   [event]
@@ -137,14 +152,42 @@
       [start-new-game-root]
       [game-root])])
 
+(defn player-score-sheet
+  [player-num position]
+  (let [player (nth (game/players (:game @game-state)) player-num)]
+    [:div.player-score-sheet {:class position}
+     [:span (:name player)]
+     ])
+  )
+
+(defn right-player-score-board
+  []
+  [:div.score-sheet
+   [player-score-sheet 2 :top-right]
+   [player-score-sheet 3 :bottom-right]])
+
+(defn left-player-score-board
+  []
+  [:div.score-sheet
+   [player-score-sheet 0 :top-left]
+   [player-score-sheet 1 :bottom-left]])
+
+(defn game-viewer-left-section
+  []
+  [:section.left
+    (when (:game @game-state)
+      [left-player-score-board])])
+
+(defn game-viewer-right-section
+  []
+  [:section.right
+   (when (:game @game-state)
+     [right-player-score-board])])
+
 (defn game-viewer-root []
   [:section.game-viewer-root
-   [:section.left
-
-    ]
+   [game-viewer-left-section]
    [game-viewer-middle-section]
-   [:section.right
-
-    ]])
+   [game-viewer-right-section]])
 
 ;;TODO: start a game between bots!
