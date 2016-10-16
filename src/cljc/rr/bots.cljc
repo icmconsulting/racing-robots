@@ -25,7 +25,8 @@
 
 (def local-bots
   {:zippy {:name "Zippy the Idiotbot"
-           :bot-instance #(->RRLocalBot (atom {}) select-random-cards)}})
+           :bot-instance #(->RRLocalBot (atom {}) select-random-cards)
+           :avatar "/images/zippy-avatar.png"}})
 
 (defrecord RRRemoteBot []
   RRBot

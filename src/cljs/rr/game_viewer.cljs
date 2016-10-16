@@ -152,13 +152,27 @@
       [start-new-game-root]
       [game-root])])
 
+(def player-colours ["red" "green" "blue" "yellow"])
+
 (defn player-score-sheet
   [player-num position]
-  (let [player (nth (game/players (:game @game-state)) player-num)]
-    [:div.player-score-sheet {:class position}
-     [:span (:name player)]
-     ])
-  )
+  (let [{:keys [name avatar robot] :as player} (nth (game/players (:game @game-state)) player-num)]
+    [:div.player-score-sheet {:class (str (clojure.core/name position) " " (get player-colours player-num))}
+     (into [:div
+            [:h3.player-name name
+             [:img {:src avatar :alt name}]]]
+           (if-not (= :dead (:state player))
+             [(if-not (= :destroyed (:state robot))
+                [:div.scores
+                 [:span.damage (:damage robot)]
+                 [:span.lives (:lives robot)]]
+                [:div.scores
+                 [:span.destroyed "Robot destroyed - awaiting respawn"]])
+              (when-not (= :destroyed (:state robot))
+                [:div.registers-this-turn
+                 [:span "Registers this turn..."]])]
+             [:div.player-dead
+              [:h4 "RIP"]]))]))
 
 (defn right-player-score-board
   []

@@ -114,6 +114,10 @@ button, input, select {
             min-height: 25%;
             flex-grow: 1;
 
+            .background-base (@colour; @direction) {
+              background: linear-gradient(@direction, @colour 0%,#ffffff 60%) no-repeat;
+            }
+
             &.top-left, &.top-right {
               align-self: flex-start;
             }
@@ -121,6 +125,55 @@ button, input, select {
             &.bottom-left, &.bottom-right {
               align-self: flex-end;
             }
+
+            display: flex;
+            align-items: stretch;
+            flex-direction: column;
+
+            > div {
+              flex-grow: 1;
+
+              display: flex;
+              flex-direction: column;
+              > h3 {
+                flex-basis: 40%;
+              }
+              .scores {
+                flex-basis: 40%;
+              }
+              .registers-this-turn {
+                flex-basis: 20%;
+              }
+            }
+
+            &.bottom-left > div, &.bottom-right > div {
+              flex-direction: column-reverse;
+            }
+
+            &.top-left {
+              &.red {
+                .background-base(#ff0000; to bottom);
+              }
+            }
+
+            &.bottom-left {
+              &.green {
+                .background-base(#00ff00; to top);
+              }
+            }
+
+            &.top-right {
+              &.blue {
+                .background-base(#0000ff; to bottom);
+              }
+            }
+
+            &.bottom-right {
+              &.yellow {
+                .background-base(#fffd00; to top);
+              }
+            }
+
           }
         }
 
