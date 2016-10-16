@@ -1,9 +1,12 @@
 (ns rr.game-viewer
   (:require [reagent.core :as reagent :refer [atom]]
             [reagent.session :as session]
-            [rr.bs :as bs]))
+            [rr.bs :as bs]
+            [rr.bots :as bots]
+            [rr.boards :as boards]
+            [rr.game :as game]))
 
-(def empty-game {:new-game {:players [{} {} {} {}] :state :not-started}})
+(def empty-game {:new-game {:players [{} {} {} {}] :state :not-started :board :random}})
 (defonce game-state (atom empty-game))
 
 (defn game-root
@@ -21,11 +24,20 @@
   [game-state [_ player-num connection-type]]
   (assoc-in game-state [:new-game :players player-num :connection-type] (keyword connection-type)))
 
+(defmethod dispatch-event-type :board-change
+  [game-state [_ board]]
+  (assoc-in game-state [:new-game :board] (keyword board)))
+
 (defmethod dispatch-event-type :player-connection-port-number
   [game-state [_ player-num port-number]]
   (if-not (clojure.string/blank? port-number)
     (assoc-in game-state [:new-game :players player-num :port] port-number)
     (update-in game-state [:new-game :players player-num] dissoc :port)))
+
+(defmethod dispatch-event-type :start-game!
+  [game-state _]
+
+  )
 
 (defn dispatch!
   [event]
@@ -58,11 +70,10 @@
                       :on-change       #(dispatch! [:player-type-change player-num (-> % .-target .-value)])}
      [:option {:disabled true :value ""} "select a player type"]
      [:option {:value "player"} "rr bot competitor (you)"]
-     ;;TODO: read the available bots from the bot list
      [:optgroup {:label "CPU Bots"}
-      [:option {:value "zippy"} "Zippy the idiot"]
-      [:option {:value "kevin"} "Kevin the wrecker"]
-      [:option {:value "phillis"} "Phillis the phoney"]]]]
+      (for [[bot-key {:keys [name]}] bots/local-bots]
+        ^{:key bot-key}
+        [:option {:value bot-key} name])]]]
    (let [new-game-player (new-game-player-by-number @game-state player-num)]
      (when (= (:player-type new-game-player) :player)
        [bs/well
@@ -87,6 +98,19 @@
       (every? :port http-players)
       (every? :port socket-players))))
 
+(defn board-selection
+  []
+  [bs/form-group
+   [bs/control-label "board"]
+   [bs/form-control {:component-class "select"
+                     :placeholder     "select board"
+                     :default-value   (name (get-in @game-state [:new-game :board] ""))
+                     :on-change       #(dispatch! [:board-change (-> % .-target .-value)])}
+    [:option {:value "random"} "give me a random one"]
+    (for [[board-key _] boards/all-available-boards]
+      ^{:key (name board-key)}
+      [:option {:value board-key} (name board-key)])]])
+
 (defn start-new-game-root
   []
   [bs/panel {:header "select robotic parameters"}
@@ -95,7 +119,12 @@
       ^{:key player-num}
       [player-type-selection player-num])
 
-    [bs/button {:bs-size :large :bs-style :primary :disabled (not (new-game-ready-to-start? @game-state))} "Get Racin'"]]])
+    [board-selection]
+
+    [bs/button {:bs-size :large
+                :bs-style :primary
+                :disabled (not (new-game-ready-to-start? @game-state))
+                :on-click #(dispatch! [:start-game!])} "Get Racin'"]]])
 
 (defn game-not-started?
   [game]

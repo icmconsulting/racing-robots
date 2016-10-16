@@ -55,6 +55,9 @@
 
 (def all-available-boards
   {:risky-exchange {:board risky-exchange
+                    :key :risky-exchange
                     :description "An easy course to start on, but don’t fall off the edge!"}
-   :dizzy-dash {:board dizzy-dash :description "Whoops, was that the flag over there?"}
+   :dizzy-dash {:board dizzy-dash
+                :key :dizzy-dash
+                :description "Whoops, was that the flag over there?"}
    })

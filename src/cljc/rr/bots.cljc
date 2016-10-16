@@ -17,9 +17,15 @@
   (game-over [bot game results])
   (profile [bot]))
 
-(def local-bots
-  {:random []}
+(defn select-random-cards
+  []
+
   )
+
+
+(def local-bots
+  {:zippy {:name "Zippy the Idiotbot"
+           :bot-instance #(->RRLocalBot (atom {}) select-random-cards)}})
 
 (defrecord RRRemoteBot []
   RRBot
