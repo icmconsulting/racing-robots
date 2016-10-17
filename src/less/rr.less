@@ -74,19 +74,21 @@ button, input, select {
   text-transform: lowercase;
 }
 
+.board-view-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: url('../images/compass.png') no-repeat bottom left;
+  background-size: 5em 5em;
+}
+
 #app {
   .full-screen();
   .page-root {
     .full-screen();
 
-    display: -webkit-flex;
-    display:    -moz-flex;
-    display:     -ms-flex;
     display:         flex;
-
-    -webkit-flex-direction: column;
-    -moz-flex-direction: column;
-    -ms-flex-direction: column;
     flex-direction: column;
 
     nav {
@@ -183,20 +185,19 @@ button, input, select {
         }
 
       }
+
+      #game-board-section {
+        .board-view-container();
+      }
     }
+
+
 
     .board-browser-root {
       .three-column-flex();
 
       #board-section {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        background-image: url('../images/compass.png');
-        background-position: bottom left;
-        background-size: 5em 5em;
-        background-repeat: no-repeat;
+        .board-view-container();
       }
 
     }
