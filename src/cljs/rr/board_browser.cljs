@@ -2,7 +2,7 @@
   (:require [rr.boards :as boards]
             [rr.game :as game]
             [rr.bs :refer [list-group list-group-item]]
-            [reagent.core :refer [atom dom-node]]
+            [reagent.core :refer [atom dom-node cursor]]
             [rr.konva :as k]))
 
 (defonce board-size (atom {:width 1000 :height 450}))
@@ -39,7 +39,6 @@
 (def rotate-left-image (image-obj "/images/rotate-left.png"))
 (def laser-point-image (image-obj "/images/laser-point.png"))
 
-(def safety-colour "#A8DB92")
 
 (defn board-list
   [selected-board]
@@ -47,7 +46,7 @@
    (doall (for [[id {:keys [description]}] boards/all-available-boards]
             [list-group-item {:key    id
                               :href   (str "/boards/" (name id))
-                              :active (= id (first @selected-board))
+                              :active (= id (:id @selected-board))
                               :header (name id)}
              description]))])
 
@@ -202,7 +201,14 @@
                         :rotation rotation}]
               ]))]))))
 
-(defonce highlighted-square (atom nil))
+(defn click-collector-renderer
+  "Renderer purely just over a square to register a click"
+  [_ {:keys [height width x y]}]
+  (fn []
+    [k/rect {:x            x
+             :y            y
+             :height       height
+             :width        width}]))
 
 (defn highlight-renderer
   [_ {:keys [height width x y highlight?]}]
@@ -262,8 +268,6 @@
                        rotator-renderer
                        docking-bay-renderer])
 
-(def top-renderers [laser-renderer highlight-renderer])
-
 (defn square-renderers
   [renderers square props]
   (let [renderers-to-apply (keep #(% square props) renderers)]
@@ -273,51 +277,71 @@
                  renderers-to-apply)))
 
 (defn highlight-square
-  [selected-board position square]
-  (swap! selected-board assoc-in [2] [position square]))
+  [highlighted-cur position square]
+  (reset! highlighted-cur [position square]))
 
 (defn board-row
-  [renderers board highlight-fn [highlighted] row-idx height y row]
+  [renderers board row-idx height y row & {:keys [highlighted highlight?] :or {highlighted (atom nil)}}]
   ^{:key (str y)}
   [k/group
-   (map-indexed
-     (fn [idx square]
-       (let [x (* idx height)
-             position [idx row-idx]]
-         ^{:key (str idx "-" y)}
-         [k/group
-          {:on-click (partial highlight-fn position square)
-           :on-touch (partial highlight-fn position square)}
-          (square-renderers renderers
-                            square
-                            {:board      board
-                             :width      height
-                             :height     height
-                             :x          x
-                             :y          y
-                             :position   position
-                             :highlight? (= position highlighted)})]))
-     row)])
+   (let [[highlighted-position] @highlighted]
+     (map-indexed
+       (fn [idx square]
+         (let [x (* idx height)
+               position [idx row-idx]]
+           ^{:key (str idx "-" y)}
+           [k/group
+            (when highlight?
+              {:on-click #(highlight-square highlighted position square)
+               :on-mouse-over #(highlight-square highlighted position square)})
+            (square-renderers renderers
+                              square
+                              {:board      board
+                               :width      height
+                               :height     height
+                               :x          x
+                               :y          y
+                               :position   position
+                               :highlight? (= position highlighted-position)})]))
+       row))])
+
+(defn base-board-layer
+  [board rows row-height]
+  [k/layer
+   [k/group
+    (map-indexed (fn [idx row]
+                   ^{:key idx} [board-row bottom-renderers board idx row-height (* idx row-height) row])
+                 rows)]])
+
+(defn laser-layer
+  [board rows row-height]
+  [k/layer
+   [k/group
+    (map-indexed (fn [idx row]
+                   ^{:key idx} [board-row [laser-renderer] board idx row-height (* idx row-height) row])
+                 rows)]])
+
+(defn highlight-layer
+  [board rows row-height highlighted-cur]
+  [k/layer
+   [k/group
+    (map-indexed (fn [idx row]
+                   ^{:key idx} [board-row [highlight-renderer click-collector-renderer] board idx row-height (* idx row-height) row
+                                :highlighted highlighted-cur :highlight? true])
+                 rows)]])
 
 (defn board-view
   [selected-board]
-  (let [[_ {:keys [board]} highlighted] @selected-board
+  (let [{:keys [board]} @selected-board
+        board (:board board)
         rows (game/rows board)
         {board-width :width board-height :height} (calculate-optimal-board-size @board-size board)
         row-height (/ board-height (count rows))
-        highlight-square-fn (partial highlight-square selected-board)]
+        highlighted (cursor selected-board [:highlighted])]
     [k/stage {:ref "board" :width board-width :height board-height :container "board-section"}
-     [k/layer
-      [k/group
-       (map-indexed (fn [idx row]
-                      ^{:key idx} [board-row bottom-renderers board highlight-square-fn highlighted idx row-height (* idx row-height) row])
-                    rows)]]
-     [k/layer
-      ;; apply lasers over the top
-      [k/group
-       (map-indexed (fn [idx row]
-                      ^{:key idx} [board-row top-renderers board highlight-square-fn highlighted idx row-height (* idx row-height) row])
-                    rows)]]]))
+     [base-board-layer board rows row-height]
+     [laser-layer board rows row-height]
+     [highlight-layer board rows row-height highlighted]]))
 
 (defn selected-board-view
   [selected-board]
@@ -350,7 +374,7 @@
 (defn square-info
   [selected-board]
   (when @selected-board
-    (let [[_ _ highlighted] @selected-board]
+    (let [{:keys [highlighted]} @selected-board]
       (if-let [[[x y] square] highlighted]
         (into [:dl [:dt "Square coordinates"] [:dd (str "[" x "," y "]")]]
               (concat (when-let [db (:docking-bay square)]
@@ -376,7 +400,10 @@
 
 (defn board-browser-root
   [id?]
-  (let [selected-board (atom (when id? [id? (get boards/all-available-boards id?) nil]))]
+  (let [selected-board (atom (when id?
+                               {:id          id?
+                                :board       (get boards/all-available-boards id?)
+                                :highlighted nil}))]
     (fn [_]
       [:section.board-browser-root
        [:section.left [board-list selected-board]]
