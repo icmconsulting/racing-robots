@@ -328,15 +328,6 @@
                                 :highlighted (cursor board-attrs [:highlighted]) :highlight? true])
                  rows)]])
 
-(defn robot-renderer
-  [_ {:keys [height width x y]}]
-  (fn []
-    [k/image {:height height
-              :width  height
-              :image  base-square-image-rivets
-              :x      x
-              :y      y}]))
-
 (defn robot-layer
   [square-dim players-cur]
   [k/layer
@@ -344,11 +335,11 @@
     (for [{:keys [id robot robot-image] :as p} players-cur]
       (let [[x y] (:position robot)]
         ^{:key id}
-        [k/image {:height square-dim
-                  :width  square-dim
+        [k/image {:height (- square-dim (* 2 wall-square-ratio square-dim))
+                  :width  (- square-dim (* 2 wall-square-ratio square-dim))
                   :image  robot-image
-                  :x      (* x square-dim)
-                  :y      (* y square-dim)}]))]])
+                  :x      (+ (* x square-dim) (* wall-square-ratio square-dim))
+                  :y      (+ (* y square-dim) (* wall-square-ratio square-dim))}]))]])
 
 (defn board-view
   [board-attrs]
@@ -363,3 +354,6 @@
        [highlight-layer board rows row-height board-attrs])
      (when (contains? @board-attrs :players)
        [robot-layer row-height (:players @board-attrs)])]))
+
+;;TODO:
+;; - game controls - advance turn

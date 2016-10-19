@@ -26,7 +26,12 @@
 (def button (adapt-react-class js/ReactBootstrap.Button))
 (def radio (adapt-react-class js/ReactBootstrap.Radio))
 
+(def button-group (adapt-react-class js/ReactBootstrap.ButtonGroup))
+(def button-toolbar (adapt-react-class js/ReactBootstrap.ButtonToolbar))
+
 ;; other layouts
 (def well (adapt-react-class js/ReactBootstrap.Well))
+
+(def glyph (adapt-react-class js/ReactBootstrap.Glyphicon))
 
 

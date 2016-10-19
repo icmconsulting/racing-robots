@@ -1,18 +1,24 @@
 (ns rr.game-viewer
   (:require [reagent.core :as reagent :refer [atom cursor]]
             [reagent.session :as session]
+            [cljs.core.async :as async]
             [rr.bs :as bs]
             [rr.bots :as bots]
             [rr.boards :as boards]
             [rr.board-viewer :refer [board-view board-parent-resize-props]]
             [rr.game :as game]
             [rr.runner :as runner]
-            [rr.utils :refer [image-obj]]))
+            [rr.utils :refer [image-obj]])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (def empty-game {:new-game {:players [{} {} {} {}] :state :not-started :board :random}})
 (defonce game-state (atom empty-game))
 
 (defmulti dispatch-event-type (fn [_ event] (first event)))
+
+(defn dispatch!
+  [event]
+  (swap! game-state dispatch-event-type event))
 
 (def bot0-image (image-obj "/images/bot-0.gif"))
 (def bot1-image (image-obj "/images/bot-1.gif"))
@@ -21,21 +27,79 @@
 (def bot4-image (image-obj "/images/bot-4.gif"))
 (def bot5-image (image-obj "/images/bot-5.gif"))
 (def bot6-image (image-obj "/images/bot-6.gif"))
+
 (def bot7-image (image-obj "/images/bot-7.gif"))
 
 (def all-bot-images #{bot0-image bot1-image bot2-image bot3-image bot4-image bot5-image bot6-image bot7-image})
+
+(defmethod dispatch-event-type :abandon-game! [_ _] empty-game)
+
+(defmethod dispatch-event-type :game-next-turn!
+  [game-state _]
+  (let [next-turn-chan (runner/next-turn (:game game-state))]
+    (go (dispatch! [:game-turn-responses-received! (async/<! next-turn-chan)]))
+    (-> (assoc game-state :waiting-for-players? true)
+        (update :state-stack conj (:game game-state)))))
+
+(defmethod dispatch-event-type :game-turn-responses-received!
+  [game-state [_ [turn game-with-turn-changes]]]
+  (assoc game-state :game game-with-turn-changes
+                    :current-turn turn
+                    :waiting-for-players? false))
+
+(defmethod dispatch-event-type :game-clean-up-turn!
+  [game-state _]
+  (let [next-turn-chan (runner/clean-up-turn (:game game-state) (:current-turn game-state))]
+    (go (dispatch! [:game-clean-up-responses-received! (async/<! next-turn-chan)]))
+    (-> (assoc game-state :waiting-for-players? true)
+        (update :state-stack conj (:game game-state)))))
+
+(defmethod dispatch-event-type :game-clean-up-responses-received!
+  [game-state [_ [turn game-ready-for-next-turn]]]
+  (assoc game-state
+    :game game-ready-for-next-turn
+    :current-turn nil
+    :previous-turn turn
+    :waiting-for-players? false))
+
+(defn game-controller-panel
+  []
+  (let [waiting? (:waiting-for-players? @game-state)]
+    [:div.game-controller-panel
+     [bs/button-group {:vertical true}
+      (when-not (:current-turn @game-state)
+        [bs/button {:bs-size  "small"
+                    :on-click #(dispatch! [:game-next-turn!])
+                    :disabled waiting?}
+         [bs/glyph {:glyph "step-forward"}] "Next turn"])
+      (when (:current-turn @game-state)
+        [bs/button {:bs-size  "small"
+                    :on-click #(dispatch! [:game-clean-up-turn!])
+                    :disabled waiting?}
+         [bs/glyph {:glyph "step-forward"}] "Clean-up turn"])
+      [bs/button {:bs-size "small" :disabled waiting?}
+       [bs/glyph {:glyph "play-circle"}] "Autoplay"]]
+
+     [bs/button-group {:vertical true}
+      [bs/button {:bs-size  "small"
+                  :bs-style :danger
+                  :on-click #(dispatch! [:abandon-game!])
+                  :disabled waiting?}
+       [bs/glyph {:glyph "remove"}] "Abandon!"]]]))
 
 (defn game-data-cursor
   ([k]
    (let [curr-game (:game @game-state)
          data {:board   (game/board curr-game)
                :players (game/players curr-game)
-               :container-id "game-board-section"}]
+               :container-id "game-board"}]
      (get-in data k)))
   ([k v] (throw (ex-info "Don't change the game cursor, goddamit!" {:tried-to-change [k v]}))))
 
 (defn game-root []
-  [board-view (cursor game-data-cursor [])])
+  [:div#game-board
+   [:div [board-view (cursor game-data-cursor [])]]
+   [game-controller-panel]])
 
 (defmethod dispatch-event-type :player-type-change
   [game-state [_ player-num selected-player-type]]
@@ -58,8 +122,10 @@
 (defn apply-player-bot
   [{:keys [player-type] :as player}]
   ;; TODO: create player ai bots
-  (when-let [cpu-bot (assoc (bots/local-bots player-type) :robot-image (rand-nth (seq all-bot-images)))]
-    cpu-bot))
+  (when-let [cpu-bot (bots/local-bots player-type)]
+    (assoc cpu-bot
+      :robot-image (rand-nth (seq all-bot-images))
+      :bot-instance ((:bot-instance cpu-bot)))))
 
 (defn kw->board
   [board]
@@ -72,11 +138,8 @@
   [game-state _]
   (let [players (map apply-player-bot (get-in game-state [:new-game :players]))
         board (kw->board (get-in game-state [:new-game :board]))]
-    {:game (runner/start-new-game {:players players :board (:board board)})}))
-
-(defn dispatch!
-  [event]
-  (swap! game-state dispatch-event-type event))
+    {:game (runner/start-new-game {:players players :board (:board board)})
+     :state-stack []}))
 
 (defn new-game-player-by-number
   [game-state player-num]
@@ -166,7 +229,7 @@
 
 (defn game-viewer-middle-section*
   []
-  [:section#game-board-section.middle
+  [:section.middle
     (if (game-not-started? @game-state)
       [start-new-game-root]
       [game-root])])

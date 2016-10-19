@@ -16,8 +16,9 @@
                  [compojure "1.5.1"]
                  [hiccup "1.0.5"]
                  [cljs-ajax "0.5.8"]
+                 [org.clojure/core.async "0.2.395"]
                  [yogthos/config "0.8"]
-                 [com.rpl/specter "0.13.0"]
+                 [com.rpl/specter "0.13.1-SNAPSHOT"]
                  [org.clojure/clojurescript "1.9.229" :scope "provided"]
                  [secretary "1.2.3"]
                  [venantius/accountant "0.1.7"

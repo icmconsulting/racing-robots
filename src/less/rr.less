@@ -186,9 +186,31 @@ button, input, select {
 
       }
 
-      #game-board-section {
+      .middle {
         .board-view-container();
+
+        #game-board {
+          .board-view-container();
+          padding: 10px;
+        }
+
+        .game-controller-panel {
+          text-align: center;
+          align-self: flex-start;
+          margin-left: 5em;
+          .well();
+
+          .btn-group, .btn-group-vertical {
+            margin: auto 5px;
+            button {
+              span {
+                margin-right: 0.4em;
+              }
+            }
+          }
+        }
       }
+
     }
 
 
