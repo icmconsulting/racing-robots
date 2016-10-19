@@ -333,7 +333,7 @@
   [k/layer
    [k/group
     (for [{:keys [id robot robot-image] :as p} players-cur]
-      (let [[x y] (:position robot)]
+      (when-let [[x y] (:position robot)]
         ^{:key id}
         [k/image {:height (- square-dim (* 2 wall-square-ratio square-dim))
                   :width  (- square-dim (* 2 wall-square-ratio square-dim))

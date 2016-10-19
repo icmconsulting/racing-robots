@@ -30,8 +30,8 @@
 
     (go-loop [players-waiting turn-players
               received-responses []]
-      (let [[v c] (async/alts! (map :resp-chan players-waiting))
-            players-left (remove #(= c (:resp-chan %)) players-waiting)]
+      (let [[v] (async/alts! (map :resp-chan players-waiting))
+            players-left (remove #(= (:id v) (:id %)) players-waiting)]
         (if (seq players-left)
           (recur players-left (conj received-responses v))
           (let [completed-turn (apply-bot-responses turn received-responses)]
@@ -39,7 +39,8 @@
 
 (defn bot-response-complete-turn
   [game turn turn-player]
-  (assoc turn-player :resp (bots/turn-complete (:bot-instance turn-player) game turn)))
+  (let [bot-response (bots/turn-complete (:bot-instance turn-player) game turn)]
+    (assoc turn-player :resp bot-response)))
 
 (defn apply-bot-clean-up-responses
   [received-responses]
@@ -56,10 +57,9 @@
 
     (go-loop [players-waiting turn-players
               received-responses []]
-      (let [[v c] (async/alts! (map :resp-chan players-waiting))
-            players-left (remove #(= c (:resp-chan %)) players-waiting)]
+      (let [[v] (async/alts! (map :resp-chan players-waiting))
+            players-left (remove #(= (:id v) (:id %)) players-waiting)]
         (if (seq players-left)
           (recur players-left (conj received-responses v))
           (let [player-responses (apply-bot-clean-up-responses received-responses)]
-            (println "RESPONSES>>>" player-responses)
             [turn (game/clean-up game turn player-responses)]))))))

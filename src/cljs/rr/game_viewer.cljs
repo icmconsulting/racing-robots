@@ -6,6 +6,7 @@
             [rr.bots :as bots]
             [rr.boards :as boards]
             [rr.board-viewer :refer [board-view board-parent-resize-props]]
+            [rr.logger :as logger]
             [rr.game :as game]
             [rr.runner :as runner]
             [rr.utils :refer [image-obj]])
@@ -96,10 +97,15 @@
      (get-in data k)))
   ([k v] (throw (ex-info "Don't change the game cursor, goddamit!" {:tried-to-change [k v]}))))
 
-(defn game-root []
+(defn game-root* []
   [:div#game-board
    [:div [board-view (cursor game-data-cursor [])]]
    [game-controller-panel]])
+
+(def game-root
+  (with-meta game-root*
+             {:component-will-mount #(logger/start-robot-event-logger game-state)
+              :component-will-unmount #(logger/stop-robot-event-logger game-state)}))
 
 (defmethod dispatch-event-type :player-type-change
   [game-state [_ player-num selected-player-type]]
@@ -289,4 +295,6 @@
    [game-viewer-middle-section]
    [game-viewer-right-section]])
 
-;;TODO: start a game between bots!
+;; TODO: - fix respawned bots
+;; TODO: - players that died robots are still on the board
+;; TODO: - end of game screen - display winner, hide board
