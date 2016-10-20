@@ -528,6 +528,18 @@
   [state]
   (reduce respawn state (players-with-destroyed-robots state)))
 
+(defn reset-destroyed-robot-state
+  [state {:keys [id] :as player}]
+  (if-not (= (:state player) :dead)
+    (transform (player-robot-path id)
+               #(assoc % :state :ready)
+               state)
+    state))
+
+(defn reset-all-robot-state
+  [state]
+  (reduce reset-destroyed-robot-state state (players-with-destroyed-robots state)))
+
 (defn num-cards-for-this-turn
   [{:keys [robot] :as player}]
   (if (:powered-down? robot)
@@ -594,7 +606,8 @@
                   (repair-robots-on-repair-squares)
                   (respawn-destroyed-robots)
                   (lock-player-registers turn)
-                  (power-down-players turn player-commands))))
+                  (power-down-players turn player-commands)
+                  (reset-all-robot-state))))
 
 
 (defn cut-and-deal-cards

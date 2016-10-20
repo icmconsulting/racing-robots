@@ -511,7 +511,8 @@
           (let [base-game (clean-up base-game (start-next-turn base-game) {})]
             (is (= [0 4] (player-position base-game 1)))
             (is (= 3 (player-lives base-game 1)))
-            (is (= 2 (player-damage base-game 1)))))
+            (is (= 2 (player-damage base-game 1)))
+            (is (= :ready (player-state base-game 1)))))
 
         (testing "If another player is located on the player's archive marker, then the player is placed in a location adjacent
                   to the player's archive marker"

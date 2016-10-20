@@ -257,11 +257,13 @@
                 [:div.scores
                  [:span.damage (:damage robot)]
                  [:span.lives (:lives robot)]]
+
                 [:div.scores
                  [:span.destroyed "Robot destroyed - awaiting respawn"]])
-              (when-not (= :destroyed (:state robot))
-                [:div.registers-this-turn
-                 [:span "Registers this turn..."]])]
+
+              [:div.registers-this-turn
+               [:span "Registers this turn..."]]]
+
              [:div.player-dead
               [:h4 "RIP"]]))]))
 
@@ -294,7 +296,3 @@
    [game-viewer-left-section]
    [game-viewer-middle-section]
    [game-viewer-right-section]])
-
-;; TODO: - fix respawned bots
-;; TODO: - players that died robots are still on the board
-;; TODO: - end of game screen - display winner, hide board

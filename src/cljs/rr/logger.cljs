@@ -15,9 +15,10 @@
                                        (sort-by :time >)
                                        (first)
                                        (:time))
-          all-new-state-events (into [] (comp robot-events-xf
-                                              (filter #(< last-old-robot-event-ts (:time %))))
-                                     (game/players new-game-state))]
+          all-new-state-events (->> (into [] (comp robot-events-xf
+                                                   (filter #(< last-old-robot-event-ts (:time %))))
+                                          (game/players new-game-state))
+                                    (sort-by :time <))]
       (doseq [event all-new-state-events]
         (println event)))))
 
