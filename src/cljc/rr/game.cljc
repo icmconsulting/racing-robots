@@ -342,9 +342,10 @@
 
 (defn apply-touched-flag
   [flag-number {:keys [flags] :as robot}]
-  (if (or (empty? flags)
-          (= (inc (apply max (:flags robot))) flag-number))
-    (update robot :flags conj flag-number)
+  (if (or (and (empty? flags) (= flag-number 1))
+          (= (first (sort > (:flags robot))) (dec flag-number)))
+    (-> (update robot :flags conj flag-number)
+        (add-robot-event :victory/touched-flag flag-number))
     robot))
 
 (defn robot-touching-flag
@@ -352,9 +353,7 @@
   (if-let [player-at-position (owner-player-at-position state flag-position)]
     (let [flag-number (:flag (square-at (:board state) flag-position))]
       (transform (player-robot-path (:id player-at-position))
-                 (comp
-                   #(add-robot-event % :victory/touched-flag flag-number)
-                   (partial apply-touched-flag flag-number))
+                 (partial apply-touched-flag flag-number)
                  state))
     state))
 
@@ -509,6 +508,7 @@
   (if (and (zero? (:lives robot)) (not= :dead (:state player)))
     (->> state
          (setval [:players ALL #(= id (:id %)) :state] :dead)
+         (transform (player-robot-path id) #(assoc % :position nil))
          (transform (player-robot-path id) #(add-robot-event % :player/died)))
     (let [player-on-archive (some #(= (:archive-marker robot) (get-in % [:robot :position])) (:players state))]
       (->> state

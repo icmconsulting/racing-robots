@@ -385,6 +385,14 @@
         (is (= #{1} (player-flags base-game 1)))
         (is (= [1 0] (player-archive-marker base-game 1)))))
 
+    (testing "Robots with no prior flags will not have flag registered if previous flag has not been touched"
+      (let [base-game (-> base-game
+                          (assoc-in [:state :players 0 :robot :flags] #{})
+                          (complete-turn (t {player1-id [{:type :move :value 2 :priority 100}
+                                                         {:type :rotate :value :right :priority 100}
+                                                         {:type :move :value 2 :priority 100}]})))]
+        (is (= #{} (player-flags base-game 1)))))
+
     (testing "Robots must hit flags in order for a flag touch to be registered, but archive marker is set irrespective"
       (let [base-game (-> base-game
                           (assoc-in [:state :players 0 :robot :flags] #{1})
