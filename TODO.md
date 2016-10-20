@@ -12,9 +12,9 @@
     - players can pick their avatar, name, robot name
 
 ## Game viewer
-- Fix layout for player scoresheet, show player id
+- Fix layout for player scoresheet, show player id, show flags touched
 - Viewable player archive marker
-- Bots get a unique bot avatar
+- Bots destroyed -> explosion sprite
 - Use consistent board square pieces (the ones that match the bots)
 - show game id
 

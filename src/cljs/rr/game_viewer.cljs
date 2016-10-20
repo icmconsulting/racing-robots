@@ -126,11 +126,11 @@
     (update-in game-state [:new-game :players player-num] dissoc :port)))
 
 (defn apply-player-bot
-  [{:keys [player-type] :as player}]
+  [{:keys [player-type]} bot-image]
   ;; TODO: create player ai bots
   (when-let [cpu-bot (bots/local-bots player-type)]
     (assoc cpu-bot
-      :robot-image (rand-nth (seq all-bot-images))
+      :robot-image bot-image
       :bot-instance ((:bot-instance cpu-bot)))))
 
 (defn kw->board
@@ -142,7 +142,7 @@
 
 (defmethod dispatch-event-type :start-game!
   [game-state _]
-  (let [players (map apply-player-bot (get-in game-state [:new-game :players]))
+  (let [players (map apply-player-bot (get-in game-state [:new-game :players]) (shuffle all-bot-images))
         board (kw->board (get-in game-state [:new-game :board]))]
     {:game (runner/start-new-game {:players players :board (:board board)})
      :state-stack []}))
@@ -249,7 +249,7 @@
   (let [{:keys [name avatar robot robot-image] :as player} (nth (game/players (:game @game-state)) player-num)]
     [:div.player-score-sheet {:class (str (clojure.core/name position) " " (get player-colours player-num))}
      (into [:div
-            [:h3.player-name name
+            [:h3.player-name name " (id: " (second (re-find #"^(\w+)-" (:id player))) ")"
              [:img {:src avatar :alt name}]
              [:img {:src (.-src robot-image) :alt name}]]]
            (if-not (= :dead (:state player))

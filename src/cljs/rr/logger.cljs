@@ -20,7 +20,7 @@
                                           (game/players new-game-state))
                                     (sort-by :time <))]
       (doseq [event all-new-state-events]
-        (println event)))))
+        (println (dissoc event  :args))))))
 
 (defn start-robot-event-logger
   [game-atom]
