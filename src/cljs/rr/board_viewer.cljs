@@ -332,14 +332,15 @@
   [square-dim players-cur]
   [k/layer
    [k/group
-    (for [{:keys [id robot robot-image] :as p} players-cur]
-      (when-let [[x y] (:position robot)]
-        ^{:key id}
-        [k/image {:height (- square-dim (* 2 wall-square-ratio square-dim))
-                  :width  (- square-dim (* 2 wall-square-ratio square-dim))
-                  :image  robot-image
-                  :x      (+ (* x square-dim) (* wall-square-ratio square-dim))
-                  :y      (+ (* y square-dim) (* wall-square-ratio square-dim))}]))]])
+    (for [{:keys [id robot robot-image state] :as p} players-cur]
+      (when-not (or (= state :dead) (nil? (:position robot)))
+        (let [[x y] (:position robot)]
+          ^{:key id}
+          [k/image {:height (- square-dim (* 2 wall-square-ratio square-dim))
+                    :width  (- square-dim (* 2 wall-square-ratio square-dim))
+                    :image  robot-image
+                    :x      (+ (* x square-dim) (* wall-square-ratio square-dim))
+                    :y      (+ (* y square-dim) (* wall-square-ratio square-dim))}])))]])
 
 (defn board-view
   [board-attrs]

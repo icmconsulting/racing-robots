@@ -1,8 +1,6 @@
 # TODO
 
 ## Test Harness
-- players that died robots are still on the board
-- fix respawned bot message
 - rotate bots
 - end of game screen - display winner, hide board
 - Show registers for turn

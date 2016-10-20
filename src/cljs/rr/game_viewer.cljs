@@ -264,8 +264,8 @@
               [:div.registers-this-turn
                [:span "Registers this turn..."]]]
 
-             [:div.player-dead
-              [:h4 "RIP"]]))]))
+             [[:div.player-dead
+               [:h4 "RIP"]]]))]))
 
 (defn right-player-score-board
   []

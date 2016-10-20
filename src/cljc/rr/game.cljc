@@ -505,8 +505,8 @@
     (rand-nth (seq (clojure.set/difference all-adj-squares all-player-squares)))))
 
 (defn respawn
-  [state {:keys [robot id]}]
-  (if (zero? (:lives robot))
+  [state {:keys [robot id] :as player}]
+  (if (and (zero? (:lives robot)) (not= :dead (:state player)))
     (->> state
          (setval [:players ALL #(= id (:id %)) :state] :dead)
          (transform (player-robot-path id) #(add-robot-event % :player/died)))
