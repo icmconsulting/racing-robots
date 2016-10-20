@@ -1,7 +1,6 @@
 # TODO
 
 ## Test Harness
-- rotate bots
 - end of game screen - display winner, hide board
 - Show registers for turn
 - auto-play game, pause game
@@ -12,6 +11,7 @@
     - players can pick their avatar, name, robot name
 
 ## Game viewer
+- Incrementally show result after each register
 - Fix layout for player scoresheet, show player id, show flags touched
 - Viewable player archive marker
 - Bots destroyed -> explosion sprite

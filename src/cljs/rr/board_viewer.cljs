@@ -328,19 +328,29 @@
                                 :highlighted (cursor board-attrs [:highlighted]) :highlight? true])
                  rows)]])
 
+(def robot-adjustment
+  {:north [0 {:x 0 :y 0}]
+   :east [90 {:x 0.7 :y 0}]
+   :south [180 {:x 0.7 :y 0.7}]
+   :west [270 {:y 0.7 :x 0}]})
+
 (defn robot-layer
   [square-dim players-cur]
   [k/layer
    [k/group
     (for [{:keys [id robot robot-image state] :as p} players-cur]
       (when-not (or (= state :dead) (nil? (:position robot)))
-        (let [[x y] (:position robot)]
+        (let [[x y] (:position robot)
+              [rot {dx :x dy :y}] (robot-adjustment (:direction robot))]
           ^{:key id}
           [k/image {:height (- square-dim (* 2 wall-square-ratio square-dim))
                     :width  (- square-dim (* 2 wall-square-ratio square-dim))
                     :image  robot-image
-                    :x      (+ (* x square-dim) (* wall-square-ratio square-dim))
-                    :y      (+ (* y square-dim) (* wall-square-ratio square-dim))}])))]])
+                    :x      (+ (* x square-dim) (* wall-square-ratio square-dim) (* square-dim dx))
+                    :y      (+ (* y square-dim) (* wall-square-ratio square-dim) (* square-dim dy))
+                    :rotation rot
+
+                    }])))]])
 
 (defn board-view
   [board-attrs]
