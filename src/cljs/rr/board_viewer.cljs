@@ -348,9 +348,7 @@
                     :image  robot-image
                     :x      (+ (* x square-dim) (* wall-square-ratio square-dim) (* square-dim dx))
                     :y      (+ (* y square-dim) (* wall-square-ratio square-dim) (* square-dim dy))
-                    :rotation rot
-
-                    }])))]])
+                    :rotation rot}])))]])
 
 (defn board-view
   [board-attrs]

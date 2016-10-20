@@ -10,7 +10,8 @@
 - Player Bot connectors (http, socket with protocol buffers, lambda)
     - players can pick their avatar, name, robot name
 
-## Game viewer
+## Game viewer / Game
+- Ensure locked register cards aren't dealt again next turn 
 - Incrementally show result after each register
 - Fix layout for player scoresheet, show player id, show flags touched
 - Viewable player archive marker

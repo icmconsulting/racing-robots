@@ -522,7 +522,8 @@
 
 (defn players-with-destroyed-robots
   [state]
-  (filter #(= :destroyed (get-in % [:robot :state])) (:players state)))
+  (->> (filter #(= :destroyed (get-in % [:robot :state])) (:players state))
+       (remove #(= :dead (:state %)))))
 
 (defn respawn-destroyed-robots
   [state]

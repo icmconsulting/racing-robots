@@ -31,10 +31,11 @@
     (go-loop [players-waiting turn-players
               received-responses []]
       (let [[v] (async/alts! (map :resp-chan players-waiting))
-            players-left (remove #(= (:id v) (:id %)) players-waiting)]
+            players-left (remove #(= (:id v) (:id %)) players-waiting)
+            _ (println (:id v) "=>" (:resp v))]
         (if (seq players-left)
           (recur players-left (conj received-responses v))
-          (let [completed-turn (apply-bot-responses turn received-responses)]
+          (let [completed-turn (apply-bot-responses turn (conj received-responses v))]
             [completed-turn (game/complete-turn game completed-turn)]))))))
 
 (defn bot-response-complete-turn
