@@ -637,13 +637,19 @@
   (registers-required-for-turn [turn] (registers-for-players turn)) ;; => map from player -> number
   (players-powering-down-next-turn [turn] (map (partial player-by-id turn) (:powering-down turn))))
 
+(defn deck-for-next-turn
+  [state]
+  (let [cards-in-deck (set (:program-deck state))
+        locked-registers (set (mapcat (comp :locked-registers :robot) (:players state)))]
+    (seq (clojure.set/difference cards-in-deck locked-registers))))
+
 (defn new-game-turn
   [state]
   (when-not (= :game-over (first (calculate-victory-status state)))
     (let [new-turn-number (inc (count (:turns state)))]
       (->RRGameTurnState new-turn-number
                          (vec (filter player-still-active? (:players state)))
-                         (shuffle (:program-deck state))))))
+                         (shuffle (deck-for-next-turn state))))))
 
 (defrecord RRGameState [state]
   RRGame
