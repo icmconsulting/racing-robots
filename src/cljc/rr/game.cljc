@@ -516,6 +516,7 @@
            (transform (player-robot-path id) #(merge % {:position  (if player-on-archive
                                                                      (random-adjacent-square state (:archive-marker robot))
                                                                      (:archive-marker robot))
+                                                        :locked-registers []
                                                         :direction (rand-nth [:west :east :north :south])
                                                         :damage    2}))
            (transform (player-robot-path id) #(add-robot-event % :player/lost-life))))))

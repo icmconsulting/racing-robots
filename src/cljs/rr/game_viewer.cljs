@@ -28,8 +28,38 @@
 (def bot4-image (image-obj "/images/bot-4.gif"))
 (def bot5-image (image-obj "/images/bot-5.gif"))
 (def bot6-image (image-obj "/images/bot-6.gif"))
-
 (def bot7-image (image-obj "/images/bot-7.gif"))
+
+(def move-1-image (image-obj "/images/m1.gif"))
+(def move-2-image (image-obj "/images/m2.gif"))
+(def move-3-image (image-obj "/images/m3.gif"))
+(def backup-image (image-obj "/images/bu.gif"))
+
+(def turn-left-image (image-obj "/images/tl.gif"))
+(def turn-right-image (image-obj "/images/tr.gif"))
+(def u-turn-image (image-obj "/images/ut.gif"))
+
+(def move-1-locked-image (image-obj "/images/m1_grey.gif"))
+(def move-2-locked-image (image-obj "/images/m2_grey.gif"))
+(def move-3-locked-image (image-obj "/images/m3_grey.gif"))
+(def backup-locked-image (image-obj "/images/bu_grey.gif"))
+
+(def turn-left-locked-image (image-obj "/images/tl_grey.gif"))
+(def turn-right-locked-image (image-obj "/images/tr_grey.gif"))
+(def u-turn-locked-image (image-obj "/images/ut_grey.gif"))
+
+(defn register-type->image
+  [{:keys [type value locked?]}]
+  (case type
+    :move (case value
+            1 (if locked? move-1-locked-image move-1-image)
+            2 (if locked? move-2-locked-image move-2-image)
+            3 (if locked? move-3-locked-image move-3-image)
+            -1 (if locked? backup-locked-image backup-image))
+    :rotate (case value
+              :left (if locked? turn-left-locked-image turn-left-image)
+              :right (if locked? turn-right-locked-image turn-right-image)
+              :u-turn (if locked? u-turn-locked-image u-turn-image))))
 
 (def all-bot-images #{bot0-image bot1-image bot2-image bot3-image bot4-image bot5-image bot6-image bot7-image})
 
@@ -242,11 +272,32 @@
 
 (def game-viewer-middle-section (with-meta game-viewer-middle-section* board-parent-resize-props))
 
+(defn register-image
+  [register]
+  (let [image (register-type->image register)]
+    [:img {:src (.-src image)}]))
+
+(defn registers-view
+  [{:keys [id robot]}]
+  (if-let [turn-registers (:current-turn @game-state)]
+    (let [player-registers-this-turn (get (game/registers-for-turn turn-registers) id)]
+      [:div.registers-this-turn
+       [:ul
+        (map-indexed (fn [idx register]
+                       ^{:key (str id "-" idx)}
+                       [:li [register-image register]])
+                     (concat player-registers-this-turn
+                             (map #(assoc % :locked? true)  (:locked-registers robot))))
+
+        ]])
+    [:div.register-this-turn]))
+
+
 (def player-colours ["red" "green" "blue" "yellow"])
 
 (defn player-score-sheet
   [player-num position]
-  (let [{:keys [name avatar robot robot-image] :as player} (nth (game/players (:game @game-state)) player-num)]
+  (let [{:keys [name avatar robot robot-image id] :as player} (nth (game/players (:game @game-state)) player-num)]
     [:div.player-score-sheet {:class (str (clojure.core/name position) " " (get player-colours player-num))}
      (into [:div
             [:h3.player-name name " (id: " (second (re-find #"^(\w+)-" (:id player))) ")"
@@ -261,8 +312,7 @@
                 [:div.scores
                  [:span.destroyed "Robot destroyed - awaiting respawn"]])
 
-              [:div.registers-this-turn
-               [:span "Registers this turn..."]]]
+              [registers-view player]]
 
              [[:div.player-dead
                [:h4 "RIP"]]]))]))

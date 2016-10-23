@@ -1,8 +1,8 @@
 # TODO
 
 ## Test Harness
-- end of game screen - display winner, hide board
 - Show registers for turn
+- end of game screen - display winner, hide board
 - auto-play game, pause game
 - Retry a turn
 - Make log messages human readable
@@ -11,7 +11,8 @@
     - players can pick their avatar, name, robot name
 
 ## Game viewer / Game
-- Ensure locked register cards aren't dealt again next turn 
+- Ensure locked register cards aren't dealt again next turn
+- Ensure cards selected by user are from the cards they were dealt - if caught cheating, destroy robot on first register
 - Incrementally show result after each register
 - Fix layout for player scoresheet, show player id, show flags touched
 - Viewable player archive marker
