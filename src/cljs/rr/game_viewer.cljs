@@ -70,7 +70,7 @@
 (defn push-game-state
   [game-state game]
   (update game-state :state-stack
-          (comp vec (partial take max-stack-size) conj)
+          (comp vec (partial take-last max-stack-size) conj)
           game))
 
 (defmethod dispatch-event-type :game-next-turn!
@@ -101,6 +101,20 @@
     :previous-turn turn
     :waiting-for-players? false))
 
+(defmethod dispatch-event-type :game-try-again!
+  [game-state _]
+  (let [last-game-state (last (:state-stack game-state))
+        current-turn (if (:current-turn game-state)
+                       nil
+                       (:previous-turn game-state))
+        previous-turn (last (last (game/turns last-game-state)))]
+    (assoc game-state
+      :game last-game-state
+      :current-turn current-turn
+      :previous-turn previous-turn
+      :state-stack (butlast (:state-stack game-state))
+      :waiting-for-players? false)))
+
 (defn game-controller-panel
   []
   (let [waiting? (:waiting-for-players? @game-state)]
@@ -116,6 +130,12 @@
                     :on-click #(dispatch! [:game-clean-up-turn!])
                     :disabled waiting?}
          [bs/glyph {:glyph "step-forward"}] "Clean-up turn"])
+
+      [bs/button {:bs-size  "small"
+                  :on-click #(dispatch! [:game-try-again!])
+                  :disabled (or waiting? (empty? (:state-stack @game-state)))}
+       [bs/glyph {:glyph "step-backward"}] "Try again"]
+
       [bs/button {:bs-size "small" :disabled waiting?}
        [bs/glyph {:glyph "play-circle"}] "Autoplay"]]
 

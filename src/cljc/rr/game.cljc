@@ -26,6 +26,7 @@
   (complete-turn [game turn])
   (clean-up [game turn player-commands])
   (players  [game])
+  (turns [game])
   (victory-status [game]))
 
 (defprotocol RRGameTurn
@@ -657,6 +658,7 @@
   (start-next-turn [game] (new-game-turn (:state game)))
   (complete-turn [game turn] (binding [*current-turn* turn] (execute-turn game turn)))
   (players  [game] (get-in game [:state :players]))
+  (turns [game] (get-in game [:state :turns]))
   (clean-up [game turn player-commands] (binding [*current-turn* turn] (execute-clean-up game turn player-commands)))
   (victory-status [game] (calculate-victory-status (:state game))))
 

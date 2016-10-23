@@ -1,8 +1,6 @@
 # TODO
 
 ## Test Harness
-- end of game screen - display winner, hide board
-- Retry a turn
 - auto-play game, pause game
 - Player Bot connectors (http, socket with protocol buffers, lambda)
     - players can pick their avatar, name, robot name
