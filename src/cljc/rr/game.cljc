@@ -747,21 +747,24 @@
   [square]
   (assoc square :repair true))
 
+(def blank-robot
+  {:direction        :north
+   :state            :ready
+   :lives            4
+   :damage           0
+   :flags            #{}
+   :locked-registers []
+   :events []})
+
 (defn player-with-robot
   [board idx player]
   (let [start-position (docking-bay-position board (inc idx))]
     (assoc player
-      :robot {:name             (:robot-name player)
-              :position         start-position
-              :direction        :north
-              :archive-marker   start-position
-              :docking-bay      (inc idx)
-              :state            :ready
-              :lives            4
-              :damage           0
-              :flags            #{}
-              :locked-registers []
-              :events []})))
+      :robot (merge {:name             (:robot-name player)
+                     :position         start-position
+                     :archive-marker   start-position
+                     :docking-bay      (inc idx)}
+                    blank-robot))))
 
 (defn player-with-game-id
   [player]

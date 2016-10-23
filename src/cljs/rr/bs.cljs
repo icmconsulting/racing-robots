@@ -18,6 +18,8 @@
 ;; panels
 (def panel (adapt-react-class js/ReactBootstrap.Panel))
 
+(def table (adapt-react-class js/ReactBootstrap.Table))
+
 ;; forms
 (def form-group (adapt-react-class js/ReactBootstrap.FormGroup))
 (def form-control (adapt-react-class js/ReactBootstrap.FormControl))
@@ -34,4 +36,7 @@
 
 (def glyph (adapt-react-class js/ReactBootstrap.Glyphicon))
 
+(def grid (adapt-react-class js/ReactBootstrap.Grid))
+(def row (adapt-react-class js/ReactBootstrap.Row))
+(def col (adapt-react-class js/ReactBootstrap.Col))
 

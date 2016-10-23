@@ -65,12 +65,20 @@
 
 (defmethod dispatch-event-type :abandon-game! [_ _] empty-game)
 
+(def max-stack-size 3)
+
+(defn push-game-state
+  [game-state game]
+  (update game-state :state-stack
+          (comp vec (partial take max-stack-size) conj)
+          game))
+
 (defmethod dispatch-event-type :game-next-turn!
   [game-state _]
   (let [next-turn-chan (runner/next-turn (:game game-state))]
     (go (dispatch! [:game-turn-responses-received! (async/<! next-turn-chan)]))
     (-> (assoc game-state :waiting-for-players? true)
-        (update :state-stack conj (:game game-state)))))
+        (push-game-state (:game game-state)))))
 
 (defmethod dispatch-event-type :game-turn-responses-received!
   [game-state [_ [turn game-with-turn-changes]]]
@@ -83,7 +91,7 @@
   (let [next-turn-chan (runner/clean-up-turn (:game game-state) (:current-turn game-state))]
     (go (dispatch! [:game-clean-up-responses-received! (async/<! next-turn-chan)]))
     (-> (assoc game-state :waiting-for-players? true)
-        (update :state-stack conj (:game game-state)))))
+        (push-game-state (:game game-state)))))
 
 (defmethod dispatch-event-type :game-clean-up-responses-received!
   [game-state [_ [turn game-ready-for-next-turn]]]
@@ -263,12 +271,84 @@
   [game]
   (= :not-started (get-in game [:new-game :state])))
 
+(defn player-short-id
+  [player]
+  (second (re-find #"^(\w+)-" (:id player))))
+
+(defn single-winner-game-over
+  [winner]
+  [[bs/row [bs/col {:xs 12}
+            [:h2.text-center [:span "Winner: " [:span.winner (:name winner) " (" (player-short-id winner) ")"]]]]]
+   [bs/row
+    [bs/col {:xs 12 :class-name "text-center"}
+     [:img {:src (:avatar winner)}]
+     [:img {:src (.-src (:robot-image winner))}]]]])
+
+(defn tie-game-over
+  [winners]
+  [[bs/row
+    [bs/col {:xs 12}
+     [:h2.text-center [:span "Tie: "
+                       [:span.winner (clojure.string/join ", " (map :name winners))]]]]]
+   [bs/row
+    (let [col-size (/ 12 (count winners))]
+      (for [winner winners]
+        ^{:key (:id winner)}
+        [bs/col {:xs col-size :class-name "text-center"}
+         [:img {:src (:avatar winner)}]
+         [:img {:src (.-src (:robot-image winner))}]]))]])
+
+(defn player-results-table
+  [players]
+  [bs/table {:striped true :condensed true :fill true}
+    [:thead
+     [:tr
+      [:th "Player"]
+      [:th "Flags touched"]
+      [:th "Lives lost"]
+      [:th "Hit by laser"]
+      [:th "Fell off board"]
+      [:th "Fell into pit"]
+      [:th "Rode belt"]]]
+   [:tbody
+    (for [player players]
+      (let [robot (:robot player)]
+        ^{:key (:id player)}
+        [:tr
+         [:td (:name player) " (" (player-short-id player) ")"]
+         [:td (count (:flags robot))]
+         [:td (- (:lives game/blank-robot) (:lives robot))]
+         [:td (count (filter (comp #{:damage/by-robot-laser :damage/by-wall-laser} :type) (:events robot))) " times"]
+         [:td (count (filter (comp #{:destroyed/fell-off-board :destroyed/belt-pushed-off-board} :type) (:events robot))) " times"]
+         [:td (count (filter (comp #{:destroyed/fell-into-pit} :type) (:events robot))) " times"]
+         [:td (count (filter (comp #{:belt/moved-by-belt} :type) (:events robot))) " squares"]]))]])
+
+(defn game-over-root
+  []
+  (let [[_ players] (game/victory-status (:game @game-state))
+        winners (filter #(= :winner (:victory-state %)) players)]
+    [bs/panel
+     (into [bs/grid
+            [bs/row [bs/col {:xs 12} [:h1.text-center "Game over!"]]]]
+           (concat
+             (if (= 1 (count winners))
+               (single-winner-game-over (first winners))
+               (tie-game-over winners))
+             [[player-results-table players]
+              [bs/row [bs/col {:xs 12 :class-name "text-center"}
+                       [bs/button {:on-click #(dispatch! [:abandon-game!]) :bs-style :primary} "go again!"]]]]))]))
+
+(defn game-finished?
+  [{:keys [game]}]
+  (= :game-over (first (game/victory-status game))))
+
 (defn game-viewer-middle-section*
   []
   [:section.middle
-    (if (game-not-started? @game-state)
-      [start-new-game-root]
-      [game-root])])
+    (cond
+      (game-not-started? @game-state) [start-new-game-root]
+      (game-finished? @game-state) [game-over-root]
+      :else [game-root])])
 
 (def game-viewer-middle-section (with-meta game-viewer-middle-section* board-parent-resize-props))
 
@@ -287,9 +367,7 @@
                        ^{:key (str id "-" idx)}
                        [:li [register-image register]])
                      (concat player-registers-this-turn
-                             (map #(assoc % :locked? true)  (:locked-registers robot))))
-
-        ]])
+                             (map #(assoc % :locked? true)  (:locked-registers robot))))]])
     [:div.register-this-turn]))
 
 
@@ -300,7 +378,7 @@
   (let [{:keys [name avatar robot robot-image id] :as player} (nth (game/players (:game @game-state)) player-num)]
     [:div.player-score-sheet {:class (str (clojure.core/name position) " " (get player-colours player-num))}
      (into [:div
-            [:h3.player-name name " (id: " (second (re-find #"^(\w+)-" (:id player))) ")"
+            [:h3.player-name name " (id: " (player-short-id player) ")"
              [:img {:src avatar :alt name}]
              [:img {:src (.-src robot-image) :alt name}]]]
            (if-not (= :dead (:state player))
