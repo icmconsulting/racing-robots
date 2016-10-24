@@ -24,10 +24,25 @@
                        (take 5))
    :powering-down false})
 
+(defn select-random-cards-or-power-down
+  [_ dealt-cards]
+  (let [i (rand-int 10)]
+    (merge
+      (select-random-cards nil dealt-cards)
+      (when (< i 7) {:powering-down true}))))
+
+(defn maybe-power-down
+  [_ _]
+  :no-action ;; TODO - choose to continue powering down or not
+  )
+
 (def local-bots
-  {:zippy {:name "Zippy the Idiotbot"
+  {:zippy {:name "Zippy"
            :bot-instance #(->RRLocalBot (atom {}) select-random-cards (constantly :no-action))
-           :avatar "/images/zippy-avatar.png"}})
+           :avatar "/images/zippy-avatar.png"}
+   :sleepy {:name "Sleepy"
+            :bot-instance #(->RRLocalBot (atom {}) select-random-cards-or-power-down maybe-power-down)
+            :avatar "/images/sleepy-avatar.jpg"}})
 
 (defrecord RRRemoteBot []
   RRBot

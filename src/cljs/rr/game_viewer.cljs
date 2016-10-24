@@ -48,6 +48,8 @@
 (def turn-right-locked-image (image-obj "/images/tr_grey.gif"))
 (def u-turn-locked-image (image-obj "/images/ut_grey.gif"))
 
+(def power-down-image (image-obj "/images/power-down.png"))
+
 (defn register-type->image
   [{:keys [type value locked?]}]
   (case type
@@ -329,7 +331,8 @@
       [:th "Hit by laser"]
       [:th "Fell off board"]
       [:th "Fell into pit"]
-      [:th "Rode belt"]]]
+      [:th "Rode belt"]
+      [:th "Powered down"]]]
    [:tbody
     (for [player players]
       (let [robot (:robot player)]
@@ -341,7 +344,8 @@
          [:td (count (filter (comp #{:damage/by-robot-laser :damage/by-wall-laser} :type) (:events robot))) " times"]
          [:td (count (filter (comp #{:destroyed/fell-off-board :destroyed/belt-pushed-off-board} :type) (:events robot))) " times"]
          [:td (count (filter (comp #{:destroyed/fell-into-pit} :type) (:events robot))) " times"]
-         [:td (count (filter (comp #{:belt/moved-by-belt} :type) (:events robot))) " squares"]]))]])
+         [:td (count (filter (comp #{:belt/moved-by-belt} :type) (:events robot))) " squares"]
+         [:td (count (filter (comp #{:power-down/start} :type) (:events robot))) " times"]]))]])
 
 (defn game-over-root
   []
@@ -377,17 +381,23 @@
   (let [image (register-type->image register)]
     [:img {:src (.-src image)}]))
 
+(defn power-down-image-view
+  []
+  [:img.power-down {:src (.-src power-down-image)}])
+
 (defn registers-view
   [{:keys [id robot]}]
   (if-let [turn-registers (:current-turn @game-state)]
-    (let [player-registers-this-turn (get (game/registers-for-turn turn-registers) id)]
+    (let [player-registers-this-turn (get (game/registers-for-turn turn-registers) id)
+          powering-down-next? (seq (filter #(= id (:id %)) (game/players-powering-down-next-turn turn-registers)))]
       [:div.registers-this-turn
        [:ul
         (map-indexed (fn [idx register]
                        ^{:key (str id "-" idx)}
                        [:li [register-image register]])
                      (concat player-registers-this-turn
-                             (map #(assoc % :locked? true)  (:locked-registers robot))))]])
+                             (map #(assoc % :locked? true)  (:locked-registers robot))))
+        (when powering-down-next? [:li [power-down-image-view]])]])
     [:div.register-this-turn]))
 
 
@@ -405,7 +415,9 @@
              [(if-not (= :destroyed (:state robot))
                 [:div.scores
                  [:span.damage (:damage robot)]
-                 [:span.lives (:lives robot)]]
+                 [:span.lives (:lives robot)]
+                 (when (:powered-down? robot)
+                   [:span.powered-down [power-down-image-view]])]
 
                 [:div.scores
                  [:span.destroyed "Robot destroyed - awaiting respawn"]])

@@ -47,6 +47,7 @@
 (def rotate-right-image (image-obj "/images/rotate-right.png"))
 (def rotate-left-image (image-obj "/images/rotate-left.png"))
 (def laser-point-image (image-obj "/images/laser-point.png"))
+(def powered-down-image (image-obj "/images/recharge.png"))
 
 (defn base-renderer
   [_ {:keys [height width x y]}]
@@ -343,12 +344,19 @@
         (let [[x y] (:position robot)
               [rot {dx :x dy :y}] (robot-adjustment (:direction robot))]
           ^{:key id}
-          [k/image {:height (- square-dim (* 2 wall-square-ratio square-dim))
-                    :width  (- square-dim (* 2 wall-square-ratio square-dim))
-                    :image  robot-image
-                    :x      (+ (* x square-dim) (* wall-square-ratio square-dim) (* square-dim dx))
-                    :y      (+ (* y square-dim) (* wall-square-ratio square-dim) (* square-dim dy))
-                    :rotation rot}])))]])
+          [k/group
+           [k/image {:height   (- square-dim (* 2 wall-square-ratio square-dim))
+                     :width    (- square-dim (* 2 wall-square-ratio square-dim))
+                     :image    robot-image
+                     :x        (+ (* x square-dim) (* wall-square-ratio square-dim) (* square-dim dx))
+                     :y        (+ (* y square-dim) (* wall-square-ratio square-dim) (* square-dim dy))
+                     :rotation rot}]
+           (when (:powered-down? robot)
+             [k/image {:height   (* 0.5 square-dim)
+                       :width    (* 0.5 square-dim)
+                       :image    powered-down-image
+                       :x        (+ (* x square-dim) (* 0.5 square-dim))
+                       :y        (+ (* y square-dim) (* 0.5 square-dim))}])])))]])
 
 (defn board-view
   [board-attrs]

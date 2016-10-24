@@ -53,6 +53,7 @@
 
 (defn add-robot-event
   [robot event-type & args]
+  (assert (some? event-type) "No event type found for robot event")
   (update robot :events conj (apply robot-event event-type args)))
 
 (defmulti execute-player-register* (fn [_ [_ {:keys [type]}]] type))
@@ -194,9 +195,9 @@
                                 :direction (if-let [[new-belt-direction] (:belt square-after-belt)]
                                              new-belt-direction
                                              direction)} :belt/moved-by-belt])]
-      (-> robot
-        (merge new-attrs)
-        (add-robot-event event)))
+      (cond->
+        (merge robot new-attrs)
+        event (add-robot-event event)))
     robot))
 
 (defn move-players-along-conveyer-belt
@@ -589,7 +590,7 @@
                                       [(some? (player-ids-powering-down id)) :power-down/start])]
     (cond-> robot
             true (assoc :powered-down? powering-down?)
-            powering-down? (add-robot-event robot event-type))))
+            powering-down? (add-robot-event event-type))))
 
 (defn power-down-players
   [state turn player-commands]
