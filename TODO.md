@@ -1,14 +1,13 @@
 # TODO
 
 ## Test Harness
-- Add other bots - one that powers down
 - auto-play game, pause game
+- Add other bots 
 - Player Bot connectors (http, socket with protocol buffers, lambda)
     - players can pick their avatar, name, robot name
 - Make log messages human readable
 
 ## Game viewer / Game
-- Decorate player bot and score sheet when powered down
 - Viewable player archive marker
 - Incrementally show result after each register
 - Ensure cards selected by user are from the cards they were dealt - if caught cheating, destroy robot on first register

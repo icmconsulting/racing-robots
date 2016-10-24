@@ -49,6 +49,7 @@
 (def u-turn-locked-image (image-obj "/images/ut_grey.gif"))
 
 (def power-down-image (image-obj "/images/power-down.png"))
+(def flags-touched-image (image-obj "/images/flag_blue.gif"))
 
 (defn register-type->image
   [{:keys [type value locked?]}]
@@ -417,7 +418,11 @@
                  [:span.damage (:damage robot)]
                  [:span.lives (:lives robot)]
                  (when (:powered-down? robot)
-                   [:span.powered-down [power-down-image-view]])]
+                   [:span.powered-down [power-down-image-view]])
+                 [:span.flags-touched
+                   (for [i (range 0 (count (:flags robot)))]
+                     ^{:key i}
+                     [:img {:src (.-src flags-touched-image)}])]]
 
                 [:div.scores
                  [:span.destroyed "Robot destroyed - awaiting respawn"]])
