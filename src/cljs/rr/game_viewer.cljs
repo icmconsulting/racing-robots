@@ -374,7 +374,10 @@
   [bs/table {:striped true :condensed true :fill true}
     [:thead
      [:tr
+      [:th]
       [:th "Player"]
+      [:th "End status"]
+      [:th "Squares moved"]
       [:th "Flags touched"]
       [:th "Lives lost"]
       [:th "Hit by laser"]
@@ -384,16 +387,21 @@
       [:th "Powered down"]]]
    [:tbody
     (for [player players]
-      (let [robot (:robot player)]
+      (let [robot (:robot player)
+            dead? (= :dead (:state player))]
         ^{:key (:id player)}
         [:tr
+         [:td (when (= :winner (:victory-state player)) [bs/glyph {:glyph "star"}])]
          [:td (:name player) " (" (player-short-id player) ")"]
+         [:td (if dead? "Dead" "active")]
+         [:td (count (filter (comp #{:belt/moved-by-belt :move/north :move/east :move/south :move/west} :type)
+                             (:events robot)))]
          [:td (count (:flags robot))]
-         [:td (- (:lives game/blank-robot) (:lives robot))]
+         [:td (if dead? 5 (- (:lives game/blank-robot) (:lives robot)))]
          [:td (count (filter (comp #{:damage/by-robot-laser :damage/by-wall-laser} :type) (:events robot))) " times"]
          [:td (count (filter (comp #{:destroyed/fell-off-board :destroyed/belt-pushed-off-board} :type) (:events robot))) " times"]
          [:td (count (filter (comp #{:destroyed/fell-into-pit} :type) (:events robot))) " times"]
-         [:td (count (filter (comp #{:belt/moved-by-belt} :type) (:events robot))) " squares"]
+         [:td (count (filter (comp #{:belt/moved-by-belt} :type) (:events robot))) " sq"]
          [:td (count (filter (comp #{:power-down/start} :type) (:events robot))) " times"]]))]])
 
 (defn game-over-root
@@ -448,9 +456,26 @@
 
 (def player-colours ["red" "green" "blue" "yellow"])
 
+(defn robot-active-scores
+  [robot]
+  [:div.scores
+   [:span.damage (:damage robot)]
+   [:span.lives (:lives robot)]
+   (when (:powered-down? robot)
+     [:span.powered-down [power-down-image-view]])
+   [:span.flags-touched
+    (for [i (range 0 (count (:flags robot)))]
+      ^{:key i}
+      [:img {:src (.-src flags-touched-image)}])]])
+
+(defn robot-destroyed
+  []
+  [:div.scores [:span.destroyed "Robot destroyed - awaiting respawn"]])
+
 (defn player-score-sheet
   [player-num position]
-  (let [{:keys [name avatar robot robot-image id] :as player} (nth (game/players (:game @game-state)) player-num)]
+  (let [{:keys [name avatar robot robot-image id] :as player} (nth (game/players (:game @game-state)) player-num)
+        powered-down? (:powered-down? robot)]
     [:div.player-score-sheet {:class (str (clojure.core/name position) " " (get player-colours player-num))}
      (into [:div
             [:h3.player-name name " (id: " (player-short-id player) ")"
@@ -458,20 +483,11 @@
              [:img {:src (.-src robot-image) :alt name}]]]
            (if-not (= :dead (:state player))
              [(if-not (= :destroyed (:state robot))
-                [:div.scores
-                 [:span.damage (:damage robot)]
-                 [:span.lives (:lives robot)]
-                 (when (:powered-down? robot)
-                   [:span.powered-down [power-down-image-view]])
-                 [:span.flags-touched
-                   (for [i (range 0 (count (:flags robot)))]
-                     ^{:key i}
-                     [:img {:src (.-src flags-touched-image)}])]]
+                [robot-active-scores robot]
+                [robot-destroyed])
 
-                [:div.scores
-                 [:span.destroyed "Robot destroyed - awaiting respawn"]])
-
-              [registers-view player]]
+              (when-not powered-down?
+                [registers-view player])]
 
              [[:div.player-dead
                [:h4 "RIP"]]]))]))

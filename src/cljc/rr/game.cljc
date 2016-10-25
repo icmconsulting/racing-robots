@@ -431,7 +431,8 @@
   (into {}
         (map (fn [[player-id registers]]
                (let [{:keys [robot]} (player-by-id state player-id)]
-                 [player-id (vec (concat registers (reverse (:locked-registers robot))))]))
+                 [player-id (when-not (:powered-down? robot)
+                              (vec (concat registers (reverse (:locked-registers robot)))))]))
              player-ids->registers)))
 
 (defn execute-registers-for-turn

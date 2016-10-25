@@ -718,6 +718,17 @@
           (is (empty? (cards-dealt-to-player player1-id next-turn)))
           (is (seq (cards-dealt-to-player player2-id next-turn))))
 
+        (testing "locked registers will not be applied while powered down"
+          (let [game (-> base-game
+                         (update-in [:state :players 0 :robot] merge {:damage 5
+                                                                      :locked-registers [{:type :rotate :value :left :priority 101}]})
+                         (complete-turn turn)
+                         (clean-up turn {}))
+                next-turn (-> (start-next-turn game)
+                              (player-enters-registers player1-id [] false)
+                              (player-enters-registers player2-id [{:type :move :value 1 :priority 100}] false))]
+            (is (= :west (player-direction (complete-turn game next-turn) 1)))))
+
         (testing "will have damage reset back to 0 at the beginning of the turn"
           (is (zero? (player-damage (complete-turn game next-turn) 1))))
 
