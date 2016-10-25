@@ -118,35 +118,82 @@
       :state-stack (butlast (:state-stack game-state))
       :waiting-for-players? false)))
 
+(def autoplay-tick-ms 3000)
+
+(defn game-finished?
+  [{:keys [game]}]
+  (= :game-over (first (game/victory-status game))))
+
+(defn autoplay-watch
+  [_ _ old-game-state new-game-state]
+  (when-not (:waiting-for-players? new-game-state)
+    (let [next-dispatch
+          (cond
+            (game-finished? new-game-state)
+            nil
+
+            (not= (:autoplay? old-game-state) (:autoplay? new-game-state))
+            (if (:current-turn new-game-state)
+              [:game-clean-up-turn!]
+              [:game-next-turn!])
+
+            (and (:current-turn old-game-state) (nil? (:current-turn new-game-state)))
+            [:game-next-turn!]
+
+            (and (nil? (:current-turn old-game-state)) (:current-turn new-game-state))
+            [:game-clean-up-turn!])]
+      (when next-dispatch
+        (go (async/<! (async/timeout autoplay-tick-ms))
+            (when (:autoplay? @game-state)
+              (dispatch! next-dispatch)))))))
+
+(defmethod dispatch-event-type :start-autoplay!
+  [state _]
+  (add-watch game-state :autoplay autoplay-watch)
+  (assoc state :autoplay? true))
+
+(defmethod dispatch-event-type :pause-autoplay!
+  [state _]
+  (remove-watch game-state :autoplay)
+  (assoc state :autoplay? false))
+
 (defn game-controller-panel
   []
-  (let [waiting? (:waiting-for-players? @game-state)]
+  (let [waiting? (:waiting-for-players? @game-state)
+        autoplaying? (:autoplay? @game-state)]
     [:div.game-controller-panel
-     [bs/button-group {:vertical true}
+     [bs/button-group {:vertical true :class-name (when autoplaying? :pulse)}
       (when-not (:current-turn @game-state)
         [bs/button {:bs-size  "small"
                     :on-click #(dispatch! [:game-next-turn!])
-                    :disabled waiting?}
+                    :disabled (or waiting? autoplaying?)}
          [bs/glyph {:glyph "step-forward"}] "Next turn"])
       (when (:current-turn @game-state)
         [bs/button {:bs-size  "small"
                     :on-click #(dispatch! [:game-clean-up-turn!])
-                    :disabled waiting?}
+                    :disabled (or waiting? autoplaying?)}
          [bs/glyph {:glyph "step-forward"}] "Clean-up turn"])
-
       [bs/button {:bs-size  "small"
                   :on-click #(dispatch! [:game-try-again!])
-                  :disabled (or waiting? (empty? (:state-stack @game-state)))}
+                  :disabled (or waiting? autoplaying?
+                                (empty? (:state-stack @game-state)))}
        [bs/glyph {:glyph "step-backward"}] "Try again"]
 
-      [bs/button {:bs-size "small" :disabled waiting?}
-       [bs/glyph {:glyph "play-circle"}] "Autoplay"]]
+      (if autoplaying?
+        [bs/button {:bs-size "small"
+                    :disabled waiting?
+                    :on-click #(dispatch! [:pause-autoplay!])}
+         [bs/glyph {:glyph "pause"}] "Pause"]
+        [bs/button {:bs-size "small"
+                    :disabled waiting?
+                    :on-click #(dispatch! [:start-autoplay!])}
+         [bs/glyph {:glyph "play"}] "Autoplay"])]
 
      [bs/button-group {:vertical true}
       [bs/button {:bs-size  "small"
                   :bs-style :danger
                   :on-click #(dispatch! [:abandon-game!])
-                  :disabled waiting?}
+                  :disabled (or waiting? autoplaying?)}
        [bs/glyph {:glyph "remove"}] "Abandon!"]]]))
 
 (defn game-data-cursor
@@ -206,7 +253,8 @@
   (let [players (map apply-player-bot (get-in game-state [:new-game :players]) (shuffle all-bot-images))
         board (kw->board (get-in game-state [:new-game :board]))]
     {:game (runner/start-new-game {:players players :board (:board board)})
-     :state-stack []}))
+     :state-stack []
+     :autoplay? false}))
 
 (defn new-game-player-by-number
   [game-state player-num]
@@ -362,10 +410,6 @@
              [[player-results-table players]
               [bs/row [bs/col {:xs 12 :class-name "text-center"}
                        [bs/button {:on-click #(dispatch! [:abandon-game!]) :bs-style :primary} "go again!"]]]]))]))
-
-(defn game-finished?
-  [{:keys [game]}]
-  (= :game-over (first (game/victory-status game))))
 
 (defn game-viewer-middle-section*
   []

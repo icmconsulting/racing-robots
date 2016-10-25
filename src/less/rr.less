@@ -249,3 +249,37 @@ button, input, select {
     }
   }
 }
+
+// animations
+.pulse {
+  animation: pulse 1s linear infinite;
+}
+
+@keyframes "pulse" {
+  0% {
+    transform: scale(1.05);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@-webkit-keyframes "pulse" {
+  0% {
+    -webkit-transform: scale(1.05);
+    transform: scale(1.05);
+  }
+  50% {
+    -webkit-transform: scale(0.95);
+    transform: scale(0.95);
+  }
+  100% {
+    -webkit-transform: scale(1);
+    transform: scale(1);
+  }
+
+}
+
