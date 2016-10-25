@@ -130,7 +130,9 @@
     (let [next-dispatch
           (cond
             (game-finished? new-game-state)
-            nil
+            (do
+              (remove-watch game-state :autoplay)
+              nil)
 
             (not= (:autoplay? old-game-state) (:autoplay? new-game-state))
             (if (:current-turn new-game-state)
