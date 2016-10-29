@@ -1,8 +1,7 @@
 Target player service workflow
 
 POST  /game/:game-id -> new game - respond with "ready"
-- If no response received, then removed from game - in tourny replaced with random bot
-- Only time board is sent, as it doesn't change for rest of game
+- If no response received, then removed from game 
 
 -------
 For each turn:
@@ -11,7 +10,6 @@ POST /game/:game-id/:turn -> deal player cards for turn + locked registers + num
 - returns -> power down response + the registers to be executed for the turn
 - not called if powered down
 - this request is performed in order of player start position, so each
-- subsequent player is aware of which players before it are powering down
 - Timeout set to 5 seconds - if no request received, all remaining cards will be transferred to the player in
 random order.
  to the player with docking-bay-number = (inc player-docking-bay-number)

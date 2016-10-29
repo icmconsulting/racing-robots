@@ -61,3 +61,9 @@
                 :key :dizzy-dash
                 :description "Whoops, was that the flag over there?"}
    })
+
+(defn board-from-board
+  [board]
+  (some->> (filter #(= (:board (val %)) board) all-available-boards)
+           (first)
+           (key)))

@@ -1,12 +1,10 @@
 (ns rr.bots)
 
-;;TODO....
-
 (defprotocol RRBot
-  (new-game [bot game])
-  (turn [bot game turn])
-  (turn-complete [bot game turn])
-  (game-over [bot game results])
+  (new-game [bot game]) ; -> :ready or :fail
+  (turn [bot game turn])                                    ; -> {:registers [], :powering-down bool}
+  (turn-complete [bot game turn])                           ; -> :no-action|:power-down|:power-down-override
+  (game-over [bot game results])                            ; no response expected
   (profile [bot]))
 
 (defrecord RRLocalBot [state-atom card-selection-fn clean-up-fn]

@@ -110,7 +110,8 @@
         current-turn (if (:current-turn game-state)
                        nil
                        (:previous-turn game-state))
-        previous-turn (last (last (game/turns last-game-state)))]
+        all-turns (game/turns last-game-state)
+        previous-turn (get all-turns (apply max (keys all-turns)))]
     (assoc game-state
       :game last-game-state
       :current-turn current-turn

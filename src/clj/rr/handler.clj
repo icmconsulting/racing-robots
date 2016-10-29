@@ -1,8 +1,9 @@
 (ns rr.handler
-  (:require [compojure.core :refer [GET defroutes]]
+  (:require [compojure.core :refer [GET defroutes context]]
             [compojure.route :refer [not-found resources]]
             [hiccup.page :refer [include-js include-css html5]]
             [rr.middleware :refer [wrap-middleware]]
+            [rr.connectors :refer [bot-routes]]
             [config.core :refer [env]]))
 
 (def mount-target
@@ -38,6 +39,7 @@
            (GET "/newgame" [] (loading-page))
            (GET "/boards" [] (loading-page))
            (GET "/boards/*" [] (loading-page))
+           (context "/bot" [] bot-routes)
            (GET "/cards" [] (cards-page))
            (resources "/")
            (not-found "Not Found"))

@@ -21,6 +21,7 @@
   (docking-bay-position [board num])) ;; => [status, players-in-order-of-victory-status], status -> :active, :game-over
 
 (defprotocol RRGame
+  (id [game])
   (board [game])
   (start-next-turn [game]) ;; => returns a RRGameTurn
   (complete-turn [game turn])
@@ -656,6 +657,7 @@
 
 (defrecord RRGameState [state]
   RRGame
+  (id [game] (:id state))
   (board [game] (get-in game [:state :board]))
   (start-next-turn [game] (new-game-turn (:state game)))
   (complete-turn [game turn] (binding [*current-turn* turn] (execute-turn game turn)))

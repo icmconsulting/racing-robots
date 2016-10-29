@@ -1,7 +1,6 @@
 # TODO
 
 ## Test Harness
-- auto-play game, pause game <<< DO THIS NEXT
 - Player Bot connectors (http, socket with protocol buffers, lambda)
     - players can pick their avatar, name, robot name
 - Make log messages human readable
