@@ -13,6 +13,7 @@
                  [cljsjs/react-bootstrap "0.30.2-0" :exclusions [cljsjs/react]]
                  [ring "1.5.0"]
                  [ring/ring-defaults "0.2.1"]
+                 [ring/ring-json "0.4.0"]
                  [ring-transit "0.1.6"]
                  [compojure "1.5.1"]
                  [hiccup "1.0.5"]

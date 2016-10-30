@@ -40,14 +40,19 @@
   [port game player]
   (let [game-data (game-data-for-bot game player)
         url (local-address port "game" (game/id game))
-        {:keys [body status] :as resp} @(http/post url {:as :text}
-                                                         {:body    (json/write-str game-data)
-                                                          :headers {"Content-Type" "application/json"}})]
-    (if (and (= 200 status) (= "ready" body))
+        {:keys [error body status] :as resp} @(http/post url
+                                                   {:body    (json/write-str game-data)
+                                                    :headers {"Content-Type" "application/json"}})]
+    (cond
+      error (do
+              (timbre/error error "Failed to connect to server on port " port)
+              ::error-connecting)
+      (and (= 200 status) (= "ready" (:response (json/read-str body :key-fn keyword))))
       :ready
+      :else
       (do
         (warn "Invalid response from bot at" url
-              "\nExpected body to be the text 'ready', but received response: " (select-keys resp [:status :body]))
+              "\nExpected body to be JSON, and '{\"response\": \"ready\"}', but received response: " (select-keys resp [:status :body]))
         ::invalid-response))))
 
 (defrecord RRHttpBot [port player]
@@ -75,6 +80,12 @@
   [game player-id]
   (let [player (filter #(= (:id %) player-id) (game/players game))]
     (assoc player :bot-connector (player-bot player))))
+
+(comment
+  (let [game (game/new-game [{:name "Tester" :port 9000 :connection-type :http}]
+                            boards/dizzy-dash)]
+    (bots/new-game (player-bot (first (game/players game))) game)
+    ))
 
 (defn player-ready
   [game player-id]
