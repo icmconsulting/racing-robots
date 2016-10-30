@@ -10,6 +10,7 @@
 - Viewable player archive marker
 - Incrementally show result after each register
 - Ensure cards selected by user are from the cards they were dealt - if caught cheating, destroy robot on first register
+    - Only randomly detect cheaters - only catch 1 in every 3 or so
 - Fix layout for player scoresheet, show player id, show flags touched
 - Bots destroyed -> explosion sprite
 - Use consistent board square pieces (the ones that match the bots)

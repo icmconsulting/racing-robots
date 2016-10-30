@@ -10,8 +10,14 @@
 
 (defroutes bot-routes
            (POST "/game/:game-id" [game-id]
-             (println "GOT IT!" game-id)
-             (resp/response {:response :ready})))
+             (resp/response {:response :ready}))
+           (POST "/game/:game-id/:turn-number" {:keys [params body]}
+             (println "NEW TURN!")
+             (println (:game-id params))
+             (println (:turn-number params))
+             (println (:cards body))
+             (resp/response {}))
+           )
 
 (def app
   (-> bot-routes
