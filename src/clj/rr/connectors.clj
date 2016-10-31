@@ -39,6 +39,16 @@
     (merge (new-game-data-for-bot game player)
            {:cards dealt})))
 
+(defn completed-turn-game-data-for-bot
+  [game player turn]
+  (let [turn-players (game/deal-cards-to-players turn)
+        registers-for-players (game/registers-for-turn turn)]
+    (merge (new-game-data-for-bot game player)
+           {:other-players (into [] (comp (other-players player)
+                                          (map #(assoc % :last-turn (get registers-for-players (:id %)))))
+                                 turn-players)
+            :available-responses (game/allowable-clean-up-commands player turn)})))
+
 (defn local-address
   [port & path-parts]
   (clojure.string/join "/" (cons (str "http://localhost:" port) path-parts)))
@@ -102,16 +112,40 @@
 
 (def turn-validator (validator/validator turn-schema))
 
+(defn adapt-register-response
+  [register]
+  (-> register
+      (update :type keyword)
+      (update :value #(if (integer? %) % (keyword %)))))
+
 (defn http-turn [port game player turn]
   (let [game-data (turn-game-data-for-bot game player turn)
-        url (local-address port "game" (game/id game) (game/turn-number turn))]
-    (do-http-request :post url game-data turn-validator)))
+        url (local-address port "game" (game/id game) (game/turn-number turn))
+        turn-response (do-http-request :post url game-data turn-validator)]
+    (if (keyword? turn-response)
+      turn-response
+      (update turn-response :registers #(map adapt-register-response %)))))
+
+(def turn-completed-schema
+  {:$schema "http://json-schema.org/draft-04/schema#"
+   :type "object"
+   :properties {:response {:enum ["power-down" "power-down-override" "no-action"]}}
+   :required [:response]})
+
+(def turn-completed-validator (validator/validator turn-completed-schema))
+
+(defn http-turn-complete
+  [port game player turn]
+  (let [game-data (completed-turn-game-data-for-bot game player turn)
+        url (local-address port "game" (game/id game) (game/turn-number turn))
+        response (do-http-request :put url game-data turn-completed-validator)]
+    (if (keyword? response) response (keyword (:response response)))))
 
 (defrecord RRHttpBot [port player]
   bots/RRBot
-  (new-game [bot game] (http-new-game port game player))
-  (turn [bot game turn] (http-turn port game player turn))
-  (turn-complete [bot game turn] )
+  (new-game [_ game] (http-new-game port game player))
+  (turn [_ game turn] (http-turn port game player turn))
+  (turn-complete [_ game turn] (http-turn-complete port game player turn))
   (game-over [bot game results])
   (profile [bot]))
 
@@ -136,8 +170,16 @@
 (comment
   (let [game (game/new-game [{:name "Tester 1" :port 9000 :connection-type :http}
                              {:name "Tester 2" :connection-type :bot}]
-                            boards/dizzy-dash)]
-    (bots/turn (player-bot (first (filter :port (game/players game)))) game (game/start-next-turn game))
+                            boards/dizzy-dash)
+        player (first (filter :port (game/players game)))
+        turn (game/start-next-turn game)
+        player-turn-response (bots/turn (player-bot player) game turn)
+        turn (game/player-enters-registers turn (:id player) (:registers player-turn-response) (:powering-down player-turn-response))
+        turn (game/player-enters-registers turn (:id (first (filter (complement :port) (game/players game))))
+                                           [{:type :move :value 1 :priority 1}] false)
+        game (game/complete-turn game turn)]
+    (println (first (filter (complement :port) (game/players game))))
+    (bots/turn-complete (player-bot player) game turn)
     ))
 
 (defmacro with-player-connector

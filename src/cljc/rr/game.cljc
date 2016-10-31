@@ -585,6 +585,13 @@
                            state)))
             state damaged-players)))
 
+(defn allowable-clean-up-commands
+  [{:keys [robot id]} turn]
+  (cond-> #{:no-action}
+          (and (= :destroyed (:state robot)) ((set (map :id (players-powering-down-next-turn turn))) id))
+          (conj :power-down-override)
+          (:powered-down? robot) (conj :power-down)))
+
 (defn robot-maybe-powering-down
   [player-ids-powering-down players-with-robots-destroyed players-overriding {:keys [id]} robot]
   (let [[powering-down? event-type] (if (and (players-with-robots-destroyed id) (players-overriding id))

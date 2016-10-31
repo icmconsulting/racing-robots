@@ -1,7 +1,7 @@
 (ns rr.http-bot-sample
   (:use ring.server.standalone
         [ring.middleware file-info file])
-  (:require [compojure.core :refer [POST GET defroutes]]
+  (:require [compojure.core :refer [POST GET PUT defroutes]]
             [compojure.route :refer [not-found resources]]
             [ring.util.response :as resp]
             [ring.middleware.json :refer [wrap-json-response wrap-json-body]]))
@@ -11,12 +11,22 @@
 (defroutes bot-routes
            (POST "/game/:game-id" [game-id]
              (resp/response {:response :ready}))
+
            (POST "/game/:game-id/:turn-number" {:keys [params body]}
              (println "NEW TURN!")
              (println (:game-id params))
              (println (:turn-number params))
              (println (:cards body))
-             (resp/response {}))
+             (let [cards (:cards body)]
+               (resp/response {:registers (->> cards shuffle (take 5))
+                               :powering-down false})))
+
+           (PUT "/game/:game-id/:turn-number" {:keys [params body]}
+                (println "COMPLETE TURN!")
+                (println (:turn-number params))
+                (println (:other-players body))
+                (println (:available-responses body))
+                (resp/response {:response :no-action}))
            )
 
 (def app
