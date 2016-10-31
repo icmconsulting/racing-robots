@@ -1,7 +1,7 @@
 (ns rr.http-bot-sample
   (:use ring.server.standalone
         [ring.middleware file-info file])
-  (:require [compojure.core :refer [POST GET PUT defroutes]]
+  (:require [compojure.core :refer [POST GET PUT DELETE defroutes]]
             [compojure.route :refer [not-found resources]]
             [ring.util.response :as resp]
             [ring.middleware.json :refer [wrap-json-response wrap-json-body]]))
@@ -9,8 +9,13 @@
 (defonce server (atom nil))
 
 (defroutes bot-routes
-           (POST "/game/:game-id" [game-id]
+           (POST "/game/:game-id" {:keys [body]}
+             (println "My ID:" (:player-id body))
              (resp/response {:response :ready}))
+
+           (DELETE "/game/:game-id" {:keys [body]}
+             (println body)
+             (resp/response {:response :YAY!}))
 
            (POST "/game/:game-id/:turn-number" {:keys [params body]}
              (println "NEW TURN!")

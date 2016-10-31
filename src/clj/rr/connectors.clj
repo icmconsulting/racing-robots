@@ -28,6 +28,7 @@
   [game player]
   (let [board (game/board game)]
     {:id    (game/id game)
+     :player-id (:id player)
      :board {:name    (boards/board-from-board board)
              :squares (game/rows board)}
      :player-robot (:robot player)
@@ -48,6 +49,12 @@
                                           (map #(assoc % :last-turn (get registers-for-players (:id %)))))
                                  turn-players)
             :available-responses (game/allowable-clean-up-commands player turn)})))
+
+(defn game-over-data-for-bot
+  [game player]
+  (let [[_ players] (game/victory-status game)]
+    {:winners (map #(dissoc % :robot) (filter #(= :winner (:victory-state %)) players))
+     :all-players players}))
 
 (defn local-address
   [port & path-parts]
@@ -81,10 +88,10 @@
       body
       :else
       (do
-        (warn "Invalid response received for" (name method) "url ->" url "\n"
-              (if-not validation-result
-                (str "HTTP Status code: " status)
-                (:message (first validation-result))))
+        (warn "Invalid response received for" (name method) "url ->" url "\n")
+        (if (nil? validation-result)
+          (warn "HTTP Status code: " status)
+          (warn (:message (first validation-result))))
         ::invalid-response))))
 
 (defn http-new-game
@@ -141,13 +148,20 @@
         response (do-http-request :put url game-data turn-completed-validator)]
     (if (keyword? response) response (keyword (:response response)))))
 
+(defn http-game-over [port game player]
+  (let [game-data (game-over-data-for-bot game player)
+        url (local-address port "game" (game/id game))
+        resp (do-http-request :delete url game-data (constantly nil))]
+    (when (keyword? resp) (warn "You don't seem to care about the results. That's fine. Good luck to you."))
+    :ok))
+
 (defrecord RRHttpBot [port player]
   bots/RRBot
   (new-game [_ game] (http-new-game port game player))
   (turn [_ game turn] (http-turn port game player turn))
   (turn-complete [_ game turn] (http-turn-complete port game player turn))
-  (game-over [bot game results])
-  (profile [bot]))
+  (game-over [bot game results] (http-game-over port game player))
+  (profile [bot]))                                          ;;TODO - if this is even needed...
 
 (defmulti player-bot :connection-type)
 
@@ -180,7 +194,13 @@
         game (game/complete-turn game turn)]
     (println (first (filter (complement :port) (game/players game))))
     (bots/turn-complete (player-bot player) game turn)
-    ))
+    )
+
+  (let [game (game/new-game [{:name "Tester 1" :port 9000 :connection-type :http}]
+                            boards/dizzy-dash)
+        player (first (filter :port (game/players game)))
+        _ (bots/new-game (player-bot player) game)]
+    (bots/game-over (player-bot player) game [])))
 
 (defmacro with-player-connector
   [game player-sym player-id & body]
