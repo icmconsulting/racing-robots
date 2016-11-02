@@ -2,6 +2,7 @@
   (:require [reagent.core :as reagent :refer [atom cursor]]
             [reagent.session :as session]
             [cljs.core.async :as async]
+            [rr.ajax-bot :as ajax-bot]
             [rr.bs :as bs]
             [rr.bots :as bots]
             [rr.boards :as boards]
@@ -236,9 +237,21 @@
     (assoc-in game-state [:new-game :players player-num :port] port-number)
     (update-in game-state [:new-game :players player-num] dissoc :port)))
 
-(defn apply-player-bot
+
+(defmulti apply-player-bot (fn [player _] [(:player-type player) (:connection-type player)]))
+
+(defmethod apply-player-bot [:player :http]
+  [player bot-image]
+  ;;TODO: fetch player profile
+  {:name "Player"
+   :bot-instance-fn #(ajax-bot/->RRAjaxBot (:id %))
+   :avatar "/images/zippy-avatar.png"
+   :connection-type :http
+   :port (:port player)
+   :robot-image bot-image})
+
+(defmethod apply-player-bot :default
   [{:keys [player-type]} bot-image]
-  ;; TODO: create player ai bots
   (when-let [cpu-bot (bots/local-bots player-type)]
     (assoc cpu-bot
       :robot-image bot-image

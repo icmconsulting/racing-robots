@@ -35,10 +35,9 @@
      :other-players (into [] (other-players player) (game/players game))}))
 
 (defn turn-game-data-for-bot
-  [game player turn]
-  (let [{:keys [dealt]} (first (filter #(= (:id player) (:id %)) (game/deal-cards-to-players turn)))]
-    (merge (new-game-data-for-bot game player)
-           {:cards dealt})))
+  [game player {:keys [dealt]}]
+  (merge (new-game-data-for-bot game player)
+         {:cards dealt}))
 
 (defn completed-turn-game-data-for-bot
   [game player turn]
@@ -127,7 +126,7 @@
 
 (defn http-turn [port game player turn]
   (let [game-data (turn-game-data-for-bot game player turn)
-        url (local-address port "game" (game/id game) (game/turn-number turn))
+        url (local-address port "game" (game/id game) (:turn-number turn))
         turn-response (do-http-request :post url game-data turn-validator)]
     (if (keyword? turn-response)
       turn-response
@@ -144,7 +143,7 @@
 (defn http-turn-complete
   [port game player turn]
   (let [game-data (completed-turn-game-data-for-bot game player turn)
-        url (local-address port "game" (game/id game) (game/turn-number turn))
+        url (local-address port "game" (game/id game) (:turn-number turn))
         response (do-http-request :put url game-data turn-completed-validator)]
     (if (keyword? response) response (keyword (:response response)))))
 
@@ -172,13 +171,18 @@
 (defn wrap-game
   [app]
   (fn [req]
-    (let [body (:body req)
-          board (game/map->RRSeqBoard (get-in body [:game :state :board]))]
-      (app (assoc req :game (game/map->RRGameState (assoc-in (:game body) [:state :board] board)))))))
+    (let [body (:body req)]
+      (app (assoc req :game (:game body))))))
+
+(defn wrap-turn
+  [app]
+  (fn [req]
+    (let [body (:body req)]
+      (app (assoc req :turn (:turn body))))))
 
 (defn player-with-bot
   [game player-id]
-  (let [player (filter #(= (:id %) player-id) (game/players game))]
+  (let [player (first (filter #(= (:id %) player-id) (game/players game)))]
     (assoc player :bot-connector (player-bot player))))
 
 (comment
@@ -213,30 +217,47 @@
   [game player-id]
   (with-player-connector
     game player player-id
-    (game/new-game (:bot-connector player) game)))
+    (bots/new-game (:bot-connector player) game)))
 
-;;TODO: 1 ajax call == 1 bot command
-;; i.e. the RemoteBot impl makes the ajax call once for each player bot - the runner collects all responses...
-
-(defn player-turn [game player-id]
+(defn player-turn [game player-id turn]
   (with-player-connector
     game player player-id
-    (game/new-game (:bot-connector player) game)))
+    (bots/turn (:bot-connector player) game turn)))
+
+(defn complete-player-turn [game player-id turn]
+  (println player-id)
+  (with-player-connector
+    game player player-id
+    (bots/turn-complete (:bot-connector player) game turn)))
+
+(defn player-game-over
+  [game player-id]
+  (with-player-connector
+    game player player-id
+    (bots/game-over (:bot-connector player) game [])))
 
 (defroutes bot-routes*
-
            (POST "/new-game/:player-id" {:keys [game params]}
-             (resp/response (player-ready game (:player-id params))))
+             (resp/response {:response (player-ready game (:player-id params))}))
 
-           (POST "/turn/:player-id" {:keys [game params]}
-              (resp/response (player-turn game (:player-id params))))
+           (POST "/turn/:player-id" {:keys [game params turn]}
+              (resp/response {:response (player-turn game (:player-id params) turn)}))
 
+           (POST "/complete-turn/:player-id" {:keys [game params turn]}
+             (resp/response {:response (complete-player-turn game (:player-id params) turn)}))
 
+           (POST "/game-over/:player-id" {:keys [game params]}
+             (resp/response {:response (player-game-over game (:player-id params))})))
 
-           )
+(def transit-handler
+  {"game"  (transit/read-handler game/map->RRGameState)
+   "board" (transit/read-handler game/map->RRSeqBoard)
+   "turn"  (transit/read-handler game/map->RRGameTurnState)})
 
 (def bot-routes
   (-> bot-routes*
+      (wrap-turn)
       (wrap-game)
-      (wrap-transit-body {:keywords? true :opts {}})
+      (wrap-transit-body {:keywords? false
+                          :opts {:handlers transit-handler}})
       (wrap-transit-response {:encoding :json :opts {}})))

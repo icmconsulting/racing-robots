@@ -1,6 +1,7 @@
 (ns rr.handler
   (:require [compojure.core :refer [GET defroutes context]]
             [compojure.route :refer [not-found resources]]
+            [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]
             [hiccup.page :refer [include-js include-css html5]]
             [rr.middleware :refer [wrap-middleware]]
             [rr.connectors :refer [bot-routes]]
@@ -20,7 +21,7 @@
 (defn loading-page []
   (html5
     (head)
-    [:body {:class "body-container"}
+    [:body {:class "body-container" :data-csrf *anti-forgery-token*}
      mount-target
      (include-js "/js/app.js")]))
 

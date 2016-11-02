@@ -783,6 +783,12 @@
   [player]
   (assoc player :id (uuid-str)))
 
+(defn player-with-bot-instance
+  [player]
+  (if-let [bot-instance-fn (:bot-instance-fn player)]
+    (assoc player :bot-instance (bot-instance-fn player))
+    player))
+
 (defn new-game
   [players board]
   (let [program-deck (shuffle program-card-deck)]
@@ -790,7 +796,7 @@
       {:id           (uuid-str)
        :program-deck program-deck
        :board        board
-       :players      (vec (map-indexed (comp player-with-game-id (partial player-with-robot board)) (shuffle players)))
+       :players      (vec (map-indexed (comp player-with-bot-instance player-with-game-id (partial player-with-robot board)) (shuffle players)))
        :turns        {}})))
 
 ;; TODO:

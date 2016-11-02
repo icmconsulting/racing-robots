@@ -1,18 +1,23 @@
-(ns rr.bots)
+(ns rr.bots
+  (:require #?(:cljs [cljs.core.async :as async]
+               :clj [clojure.core.async :as async :refer [go go-loop]]))
+  #?(:cljs (:require-macros [cljs.core.async.macros :refer [go go-loop]])))
+
+;; All bot funcs return a chan
 
 (defprotocol RRBot
   (new-game [bot game]) ; -> :ready or :fail
-  (turn [bot game turn])                                    ; -> {:registers [], :powering-down bool}
-  (turn-complete [bot game turn])                           ; -> :no-action|:power-down|:power-down-override
+  (turn [bot game player-turn])                                    ; -> {:registers [], :powering-down bool}
+  (turn-complete [bot game game-turn])                           ; -> :no-action|:power-down|:power-down-override
   (game-over [bot game results])                            ; no response expected
   (profile [bot]))
 
 (defrecord RRLocalBot [state-atom card-selection-fn clean-up-fn]
   RRBot
-  (new-game [bot game])
-  (turn [bot game turn] (card-selection-fn game (:dealt turn)))
-  (turn-complete [bot game turn] (clean-up-fn game turn))
-  (game-over [bot game results])
+  (new-game [bot game] (go :ready))
+  (turn [bot game player-turn] (go (card-selection-fn game (:dealt player-turn))))
+  (turn-complete [bot game turn] (go (clean-up-fn game turn)))
+  (game-over [bot game results] (go :ok))
   (profile [bot]))
 
 (defn select-random-cards
@@ -41,12 +46,3 @@
    :sleepy {:name "Sleepy"
             :bot-instance #(->RRLocalBot (atom {}) select-random-cards-or-power-down maybe-power-down)
             :avatar "/images/sleepy-avatar.jpg"}})
-
-(defrecord RRRemoteBot []
-  RRBot
-  (new-game [bot game])
-  (turn [bot game turn])
-  (turn-complete [bot game turn])
-  (game-over [bot game results])
-  (profile [bot])
-  )

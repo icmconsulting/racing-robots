@@ -23,7 +23,7 @@
     (reset! server
             (serve (get-handler)
                    {:port port
-                    :auto-reload? true
+                    :auto-reload? false
                     :join? false}))
     (println (str "You can view the site at http://localhost:" port))))
 
