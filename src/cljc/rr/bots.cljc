@@ -10,15 +10,14 @@
   (turn [bot game player-turn])                                    ; -> {:registers [], :powering-down bool}
   (turn-complete [bot game game-turn])                           ; -> :no-action|:power-down|:power-down-override
   (game-over [bot game results])                            ; no response expected
-  (profile [bot]))
+  )
 
-(defrecord RRLocalBot [state-atom card-selection-fn clean-up-fn]
+(defrecord RRLocalBot [state-atom profile card-selection-fn clean-up-fn]
   RRBot
-  (new-game [bot game] (go :ready))
+  (new-game [bot game] (go {:response :ready :profile profile}))
   (turn [bot game player-turn] (go (card-selection-fn game (:dealt player-turn))))
   (turn-complete [bot game turn] (go (clean-up-fn game turn)))
-  (game-over [bot game results] (go :ok))
-  (profile [bot]))
+  (game-over [bot game results] (go :ok)))
 
 (defn select-random-cards
   [_ dealt-cards]
@@ -40,9 +39,13 @@
   )
 
 (def local-bots
-  {:zippy {:name "Zippy"
-           :bot-instance #(->RRLocalBot (atom {}) select-random-cards (constantly :no-action))
-           :avatar "/images/zippy-avatar.png"}
-   :sleepy {:name "Sleepy"
-            :bot-instance #(->RRLocalBot (atom {}) select-random-cards-or-power-down maybe-power-down)
-            :avatar "/images/sleepy-avatar.jpg"}})
+  {:zippy #(->RRLocalBot (atom {})
+                         {:name "Team zippy"
+                          :robot-name "Zippy"
+                          :avatar "/images/zippy-avatar.png"}
+                         select-random-cards (constantly :no-action))
+   :sleepy #(->RRLocalBot (atom {})
+                          {:name "Sleepy bots inc."
+                           :robot-nae "Sleepy"
+                           :avatar "/images/sleepy-avatar.jpg"}
+                          select-random-cards-or-power-down maybe-power-down)})

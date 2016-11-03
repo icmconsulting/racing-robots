@@ -41,7 +41,14 @@
   (let [new-game (game/new-game players board)]
     (send-and-collect-responses (game/players new-game)
                                 (partial bot-response-for-new-game new-game)
-                                (fn [responses] [new-game (apply-bot-new-game-responses responses)]))))
+                                (fn [responses]
+                                  (let [player-responses (apply-bot-new-game-responses responses)
+                                        game-with-player-responses (reduce-kv (fn [game player-id resp]
+                                                                                (if-let [profile (:profile resp)]
+                                                                                  (game/update-player-profile game player-id profile)
+                                                                                  game))
+                                                                              new-game player-responses)]
+                                    [game-with-player-responses player-responses])))))
 
 (defn bot-response-for-turn
   [game turn {:keys [bot-instance] :as player-turn}]

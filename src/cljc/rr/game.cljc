@@ -26,6 +26,7 @@
   (start-next-turn [game]) ;; => returns a RRGameTurn
   (complete-turn [game turn])
   (clean-up [game turn player-commands])
+  (update-player-profile [game player-id profile])
   (players  [game])
   (turns [game])
   (victory-status [game]))
@@ -662,12 +663,19 @@
                          (vec (filter player-still-active? (:players state)))
                          (shuffle (deck-for-next-turn state))))))
 
+(defn do-update-player-profile
+  [game player-id profile]
+  (transform [:state :players ALL (if-path [:id (partial = player-id)] [])]
+             #(merge % (select-keys profile [:name :robot-name :avatar]))
+             game))
+
 (defrecord RRGameState [state]
   RRGame
   (id [game] (:id state))
   (board [game] (get-in game [:state :board]))
   (start-next-turn [game] (new-game-turn (:state game)))
   (complete-turn [game turn] (binding [*current-turn* turn] (execute-turn game turn)))
+  (update-player-profile [game player-id profile] (do-update-player-profile game player-id profile))
   (players  [game] (get-in game [:state :players]))
   (turns [game] (get-in game [:state :turns]))
   (clean-up [game turn player-commands] (binding [*current-turn* turn] (execute-clean-up game turn player-commands)))

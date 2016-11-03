@@ -243,20 +243,18 @@
 
 (defmethod apply-player-bot [:player :http]
   [player bot-image]
-  ;;TODO: fetch player profile
-  {:name "Player"
+  {:name "Loading Human Bot"
    :bot-instance-fn #(ajax-bot/->RRAjaxBot (:id %))
-   :avatar "/images/zippy-avatar.png"
    :connection-type :http
    :port (:port player)
    :robot-image bot-image})
 
 (defmethod apply-player-bot :default
   [{:keys [player-type]} bot-image]
-  (when-let [cpu-bot (bots/local-bots player-type)]
-    (assoc cpu-bot
-      :robot-image bot-image
-      :bot-instance ((:bot-instance cpu-bot)))))
+  (when-let [cpu-bot-fn (bots/local-bots player-type)]
+    {:name "Loading CPU Bot"
+     :robot-image  bot-image
+     :bot-instance (cpu-bot-fn)}))
 
 (defn kw->board
   [board]
@@ -281,7 +279,7 @@
 (defmethod dispatch-event-type :game-started!
   [game-state [_ game player-readiness]]
   (let [all-players (game/players game)
-        not-ready-players (remove #(= :ready (get player-readiness (:id %))) all-players)]
+        not-ready-players (remove #(= :ready (get-in player-readiness [(:id %) :response])) all-players)]
     (doseq [p not-ready-players] (warn "Player bot not ready: [" (:id p) "," (:name p) "]"))
 
     (if (seq not-ready-players)
@@ -318,9 +316,9 @@
      [:option {:disabled true :value ""} "select a player type"]
      [:option {:value "player"} "rr bot competitor (you)"]
      [:optgroup {:label "CPU Bots"}
-      (for [[bot-key {:keys [name]}] bots/local-bots]
+      (for [[bot-key] bots/local-bots]
         ^{:key bot-key}
-        [:option {:value bot-key} name])]]]
+        [:option {:value bot-key} (name bot-key)])]]]
    (let [new-game-player (new-game-player-by-number @game-state player-num)]
      (when (= (:player-type new-game-player) :player)
        [bs/well

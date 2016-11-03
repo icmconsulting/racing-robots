@@ -91,5 +91,4 @@
   (new-game [bot game] (send-new-game game player-id))
   (turn [bot game turn] (send-turn game player-id turn))
   (turn-complete [bot game turn] (send-turn-complete game player-id turn))
-  (game-over [bot game results] (send-game-over game player-id))
-  (profile [bot]))
+  (game-over [bot game results] (send-game-over game player-id)))

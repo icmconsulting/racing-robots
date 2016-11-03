@@ -62,8 +62,13 @@
 (def ready-schema
   {:$schema "http://json-schema.org/draft-04/schema#"
    :type "object"
-   :properties {:response {:enum ["ready"]}}
-   :required [:response]})
+   :properties {:response {:enum ["ready"]}
+                :profile {:type "object"
+                          :properties {:name {:type "string"}
+                                       :robot-name {:type "string"}
+                                       :avatar {:type "string"}}
+                          :required [:name :robot-name :avatar]}}
+   :required [:response :profile]})
 
 (def ready-validator (validator/validator ready-schema))
 
@@ -98,7 +103,9 @@
   (let [game-data (new-game-data-for-bot game player)
         url (local-address port "game" (game/id game))
         response (do-http-request :post url game-data ready-validator)]
-    (if (keyword? response) response :ready)))
+    (if (keyword? response) 
+      response
+      (update response :response keyword))))
 
 (def turn-schema
   {:$schema "http://json-schema.org/draft-04/schema#"
@@ -159,8 +166,7 @@
   (new-game [_ game] (http-new-game port game player))
   (turn [_ game turn] (http-turn port game player turn))
   (turn-complete [_ game turn] (http-turn-complete port game player turn))
-  (game-over [bot game results] (http-game-over port game player))
-  (profile [bot]))                                          ;;TODO - if this is even needed...
+  (game-over [bot game results] (http-game-over port game player)))
 
 (defmulti player-bot :connection-type)
 
@@ -184,26 +190,6 @@
   [game player-id]
   (let [player (first (filter #(= (:id %) player-id) (game/players game)))]
     (assoc player :bot-connector (player-bot player))))
-
-(comment
-  (let [game (game/new-game [{:name "Tester 1" :port 9000 :connection-type :http}
-                             {:name "Tester 2" :connection-type :bot}]
-                            boards/dizzy-dash)
-        player (first (filter :port (game/players game)))
-        turn (game/start-next-turn game)
-        player-turn-response (bots/turn (player-bot player) game turn)
-        turn (game/player-enters-registers turn (:id player) (:registers player-turn-response) (:powering-down player-turn-response))
-        turn (game/player-enters-registers turn (:id (first (filter (complement :port) (game/players game))))
-                                           [{:type :move :value 1 :priority 1}] false)
-        game (game/complete-turn game turn)]
-    (println (first (filter (complement :port) (game/players game))))
-    (bots/turn-complete (player-bot player) game turn))
-
-  (let [game (game/new-game [{:name "Tester 1" :port 9000 :connection-type :http}]
-                            boards/dizzy-dash)
-        player (first (filter :port (game/players game)))
-        _ (bots/new-game (player-bot player) game)]
-    (bots/game-over (player-bot player) game [])))
 
 (defmacro with-player-connector
   [game player-sym player-id & body]
