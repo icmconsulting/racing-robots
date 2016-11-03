@@ -1,6 +1,7 @@
 (ns rr.game-viewer
   (:require [reagent.core :as reagent :refer [atom cursor]]
             [reagent.session :as session]
+            [taoensso.timbre :refer [debug info warn]]
             [cljs.core.async :as async]
             [rr.ajax-bot :as ajax-bot]
             [rr.bs :as bs]
@@ -267,10 +268,21 @@
 (defmethod dispatch-event-type :start-game!
   [game-state _]
   (let [players (map apply-player-bot (get-in game-state [:new-game :players]) (shuffle all-bot-images))
-        board (kw->board (get-in game-state [:new-game :board]))]
-    {:game (runner/start-new-game {:players players :board (:board board)})
-     :state-stack []
-     :autoplay? false}))
+        board (kw->board (get-in game-state [:new-game :board]))
+        game-ch (runner/start-new-game {:players players :board (:board board)})]
+
+    (go (dispatch! (vec (concat [:game-started!] (async/<! game-ch)))))
+
+    {:state-stack []
+     :autoplay? false
+     :waiting-for-ready? true}))
+
+(defmethod dispatch-event-type :game-started!
+  [game-state [_ game player-readiness]]
+  (let [all-players (game/players game)
+        not-ready-players (remove #(= :ready (get player-readiness (:id %))) all-players)]
+    (doseq [p not-ready-players] (warn "Player bot not ready: [" (:id p) "," (:name p) "]"))
+    (assoc game-state :game game :waiting-for-ready? false)))
 
 (defn new-game-player-by-number
   [game-state player-num]
@@ -435,10 +447,20 @@
               [bs/row [bs/col {:xs 12 :class-name "text-center"}
                        [bs/button {:on-click #(dispatch! [:abandon-game!]) :bs-style :primary} "go again!"]]]]))]))
 
+(defn game-waiting-for-ready?
+  [game-state]
+  (:waiting-for-ready? game-state))
+
+(defn waiting-for-ready-root
+  []
+  [bs/panel {:class "pulse"}
+   [:h3 "Waiting for players..."]])
+
 (defn game-viewer-middle-section*
   []
   [:section.middle
     (cond
+      (game-waiting-for-ready? @game-state) [waiting-for-ready-root]
       (game-not-started? @game-state) [start-new-game-root]
       (game-finished? @game-state) [game-over-root]
       :else [game-root])])

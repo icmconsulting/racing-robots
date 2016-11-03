@@ -14,7 +14,6 @@
 
 (defn response-handler
   [ch [ok response]]
-  (println "Response ->" response)
   (go (async/>! ch (if ok (:response response) {:error response}))))
 
 (deftype BoardHandler []
@@ -24,7 +23,9 @@
 
 (defn fix-player-for-send
   [p]
-  (dissoc p :bot-instance :bot-instance-fn :robot-image))
+  (-> p
+      (dissoc :bot-instance :bot-instance-fn :robot-image)
+      (update :robot dissoc :events)))
 
 (deftype GameHandler []
   Object

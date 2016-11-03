@@ -197,8 +197,7 @@
                                            [{:type :move :value 1 :priority 1}] false)
         game (game/complete-turn game turn)]
     (println (first (filter (complement :port) (game/players game))))
-    (bots/turn-complete (player-bot player) game turn)
-    )
+    (bots/turn-complete (player-bot player) game turn))
 
   (let [game (game/new-game [{:name "Tester 1" :port 9000 :connection-type :http}]
                             boards/dizzy-dash)
