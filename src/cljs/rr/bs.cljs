@@ -36,6 +36,8 @@
 
 (def glyph (adapt-react-class js/ReactBootstrap.Glyphicon))
 
+(def alert (adapt-react-class js/ReactBootstrap.Alert))
+
 (def grid (adapt-react-class js/ReactBootstrap.Grid))
 (def row (adapt-react-class js/ReactBootstrap.Row))
 (def col (adapt-react-class js/ReactBootstrap.Col))

@@ -274,6 +274,7 @@
     (go (dispatch! (vec (concat [:game-started!] (async/<! game-ch)))))
 
     {:state-stack []
+     :new-game (select-keys (:new-game game-state) [:players :board])   ;; for trying again if something goes wrong
      :autoplay? false
      :waiting-for-ready? true}))
 
@@ -282,7 +283,12 @@
   (let [all-players (game/players game)
         not-ready-players (remove #(= :ready (get player-readiness (:id %))) all-players)]
     (doseq [p not-ready-players] (warn "Player bot not ready: [" (:id p) "," (:name p) "]"))
-    (assoc game-state :game game :waiting-for-ready? false)))
+
+    (if (seq not-ready-players)
+      (assoc game-state :not-ready-players not-ready-players)
+      (-> game-state
+          (dissoc :not-ready-players :new-game :waiting-for-ready?)
+          (assoc :game game)))))
 
 (defn new-game-player-by-number
   [game-state player-num]
@@ -452,15 +458,29 @@
   (:waiting-for-ready? game-state))
 
 (defn waiting-for-ready-root
-  []
-  [bs/panel {:class "pulse"}
-   [:h3 "Waiting for players..."]])
+  [game-state]
+  (let [not-ready-players (:not-ready-players game-state)]
+    [bs/panel {:class (when-not not-ready-players "pulse")}
+     (if not-ready-players
+       [bs/alert {:bs-style "warning"}
+        [:h3 [bs/glyph {:glyph "warning-sign"}] " Connection problems"]
+        [:div [:p "Could not contact or invalid ready responses were received for the following players:"]]
+        [:div [:ul
+               (for [p not-ready-players]
+                 ^{:key (:id p)}
+                 [:li (:name p) "(" (:id p) ")"])]]
+        [:div [:p "Check the developer console and the system log for more information."]]
+        [:div [:p [bs/button {:bs-size  :large
+                              :bs-style :primary
+                              :on-click #(dispatch! [:start-game!])} "Try again"]]]]
+
+       [:h3 "Waiting for players..."])]))
 
 (defn game-viewer-middle-section*
   []
   [:section.middle
     (cond
-      (game-waiting-for-ready? @game-state) [waiting-for-ready-root]
+      (game-waiting-for-ready? @game-state) [waiting-for-ready-root @game-state]
       (game-not-started? @game-state) [start-new-game-root]
       (game-finished? @game-state) [game-over-root]
       :else [game-root])])
