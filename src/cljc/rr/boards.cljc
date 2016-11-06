@@ -64,6 +64,6 @@
 
 (defn board-from-board
   [board]
-  (some->> (filter #(= (:board (val %)) board) all-available-boards)
+  (some->> (filter #(identical? (:board (val %)) board) all-available-boards)
            (first)
            (key)))

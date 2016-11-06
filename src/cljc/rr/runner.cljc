@@ -7,7 +7,6 @@
             [clojure.core.async :as async :refer [go go-loop]]))
   #?(:cljs (:require-macros [cljs.core.async.macros :refer [go go-loop]])))
 
-;;TODO: get ready status for each bot
 
 (defn send-and-collect-responses
   [players send-fn reduce-responses-fn]
@@ -88,8 +87,25 @@
 (defn clean-up-turn
   [game turn]
   (let [turn-players (keys (game/registers-required-for-turn turn))]
-    (send-and-collect-responses (keys (game/registers-required-for-turn turn))
+    (send-and-collect-responses turn-players
                                 (partial bot-response-complete-turn game turn)
                                 (fn [responses]
                                   (let [player-responses (apply-bot-clean-up-responses responses)]
                                     [turn (game/clean-up game turn player-responses)])))))
+
+(defn bot-response-game-over
+  [game turn-player]
+  (async/map
+    #(assoc turn-player :resp %)
+    [(bots/game-over (:bot-instance turn-player) game [])]))
+
+(defn apply-bot-game-over-responses
+  [received-responses]
+  (zipmap (map :id received-responses)
+          (map :resp received-responses)))
+
+(defn game-over
+  [game]
+  (send-and-collect-responses (game/players game)
+                              (partial bot-response-game-over game)
+                              apply-bot-game-over-responses))

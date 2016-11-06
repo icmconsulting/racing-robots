@@ -121,7 +121,7 @@
       :state-stack (butlast (:state-stack game-state))
       :waiting-for-players? false)))
 
-(def autoplay-tick-ms 3000)
+(def autoplay-tick-ms 2000)
 
 (defn game-finished?
   [{:keys [game]}]
@@ -135,6 +135,7 @@
             (game-finished? new-game-state)
             (do
               (remove-watch game-state :autoplay)
+              (runner/game-over (:game new-game-state))
               nil)
 
             (not= (:autoplay? old-game-state) (:autoplay? new-game-state))
@@ -238,15 +239,28 @@
     (assoc-in game-state [:new-game :players player-num :port] port-number)
     (update-in game-state [:new-game :players player-num] dissoc :port)))
 
+(defmethod dispatch-event-type :player-connection-function-name
+  [game-state [_ player-num function-name]]
+  (if-not (clojure.string/blank? function-name)
+    (assoc-in game-state [:new-game :players player-num :lambda-function-name] function-name)
+    (update-in game-state [:new-game :players player-num] dissoc :lambda-function-name)))
 
 (defmulti apply-player-bot (fn [player _] [(:player-type player) (:connection-type player)]))
 
 (defmethod apply-player-bot [:player :http]
   [player bot-image]
-  {:name "Loading Human Bot"
+  {:name "Loading Human HTTP Bot"
    :bot-instance-fn #(ajax-bot/->RRAjaxBot (:id %))
    :connection-type :http
    :port (:port player)
+   :robot-image bot-image})
+
+(defmethod apply-player-bot [:player :lambda]
+  [player bot-image]
+  {:name "Loading Human Lambda Bot"
+   :bot-instance-fn #(ajax-bot/->RRAjaxBot (:id %))
+   :connection-type :lambda
+   :lambda-function-name (:lambda-function-name player)
    :robot-image bot-image})
 
 (defmethod apply-player-bot :default
@@ -304,6 +318,16 @@
                      :on-change #(dispatch! [:player-connection-port-number player-num (-> % .-target .-value)])}]
    [bs/help-block "Obviously, should be between 0 and 65536"]])
 
+(defn lambda-function-name-input
+  [player-num]
+  [bs/form-group
+   [bs/control-label "Lambda function name"]
+   [bs/form-control {:type :text
+                     :placeholder "Lambda function name"
+                     :value (:lambda-function-name (new-game-player-by-number @game-state player-num) "")
+                     :on-change #(dispatch! [:player-connection-function-name player-num (-> % .-target .-value)])}]
+   [bs/help-block "The name you gave to your AWS Lambda function when you set it up"]])
+
 (defn player-type-selection
   [player-num]
   [:div
@@ -324,11 +348,10 @@
        [bs/well
         [bs/form-group
          [bs/control-label "Connection type"]
-         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :http])} "Json over HTTP/REST"]
+         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :http])} "HTTP/REST"]
          (when (= :http (:connection-type new-game-player)) [port-number-input player-num])
-         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :socket])} "Socket"]
-         (when (= :socket (:connection-type new-game-player)) [port-number-input player-num])
-         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :lambda])} "Json over AWS Lambda"]]]))])
+         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :lambda])} "AWS Lambda"]]
+          (when (= :lambda (:connection-type new-game-player)) [lambda-function-name-input player-num])]))])
 
 (defn new-game-ready-to-start?
   [{:keys [new-game]}]

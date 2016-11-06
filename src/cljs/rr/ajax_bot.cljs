@@ -1,6 +1,7 @@
 (ns rr.ajax-bot
   (:require [ajax.core :refer [ajax-request GET POST transit-request-format transit-response-format]]
             [cljs.core.async :as async]
+            [rr.boards :as boards]
             [rr.bots :as bots]
             [rr.game :as game])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
@@ -19,7 +20,7 @@
 (deftype BoardHandler []
   Object
   (tag [_ _] "board")
-  (rep [_ v] {:board-squares (:board-squares v)}))
+  (rep [_ v] {:name (boards/board-from-board v) :board-squares (:board-squares v)}))
 
 (defn fix-player-for-send
   [p]

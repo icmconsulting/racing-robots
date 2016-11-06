@@ -6,12 +6,14 @@
             [cognitect.transit :as transit]
             [org.httpkit.client :as http]
             [scjsv.core :as validator]
+            [amazonica.aws.lambda :as lambda]
             [clojure.core.async :as async :refer [go go-loop <! >!]]
             [ring.middleware.transit :refer [wrap-transit-response wrap-transit-body]]
             [rr.middleware :refer [wrap-middleware]]
             [rr.bots :as bots]
             [rr.boards :as boards]
-            [rr.game :as game]))
+            [rr.game :as game])
+  (:import [com.amazonaws AmazonServiceException]))
 
 (timbre/refer-timbre)
 
@@ -29,7 +31,7 @@
   (let [board (game/board game)]
     {:id    (game/id game)
      :player-id (:id player)
-     :board {:name    (boards/board-from-board board)
+     :board {:name    (:name board)                         ;; bit of a hack - this assumes that :name is within the map of the board that is sent
              :squares (game/rows board)}
      :player-robot (:robot player)
      :other-players (into [] (other-players player) (game/players game))}))
@@ -103,7 +105,7 @@
   (let [game-data (new-game-data-for-bot game player)
         url (local-address port "game" (game/id game))
         response (do-http-request :post url game-data ready-validator)]
-    (if (keyword? response) 
+    (if (keyword? response)
       response
       (update response :response keyword))))
 
@@ -131,13 +133,17 @@
       (update :type keyword)
       (update :value #(if (integer? %) % (keyword %)))))
 
+(defn adapt-turn-response
+  [turn-response]
+  (update turn-response :registers #(map adapt-register-response %)))
+
 (defn http-turn [port game player turn]
   (let [game-data (turn-game-data-for-bot game player turn)
         url (local-address port "game" (game/id game) (:turn-number turn))
         turn-response (do-http-request :post url game-data turn-validator)]
     (if (keyword? turn-response)
       turn-response
-      (update turn-response :registers #(map adapt-register-response %)))))
+      (adapt-turn-response turn-response))))
 
 (def turn-completed-schema
   {:$schema "http://json-schema.org/draft-04/schema#"
@@ -168,11 +174,77 @@
   (turn-complete [_ game turn] (http-turn-complete port game player turn))
   (game-over [bot game results] (http-game-over port game player)))
 
+(defn invoke-lambda-function
+  [aws-creds function-name message-type data validator]
+  (let [message {:message-type message-type
+                 :data         data}
+        payload (json/write-str message)]
+    (try
+      (let [response (some->
+                       (lambda/invoke aws-creds :function-name function-name :payload payload)
+                       (:payload)
+                       (.array)
+                       (String. "UTF-8")
+                       (json/read-str :key-fn keyword))
+            validation-result (validator response)]
+        (if validation-result
+          (do
+            (warn "Invalid response received when invoking function" function-name)
+            (warn (:message (first validation-result)))
+            ::invalid-response)
+          response))
+      (catch com.amazonaws.AmazonServiceException e
+        (error e "Error while invoking lambda function" function-name)
+        ::error-connecting))))
+
+(defn lambda-new-game
+  [aws-creds function-name game player]
+  (let [game-data (assoc (new-game-data-for-bot game player) :game-id (game/id game))
+        response (invoke-lambda-function aws-creds function-name "new-game" game-data ready-validator)]
+    (if (keyword? response)
+      response
+      (update response :response keyword))))
+
+(defn lambda-turn
+  [aws-creds function-name game player turn]
+  (let [game-data (assoc (turn-game-data-for-bot game player turn)
+                    :game-id (game/id game)
+                    :turn-number (:turn-number turn))
+        response (invoke-lambda-function aws-creds function-name "turn" game-data turn-validator)]
+    (if (keyword? response)
+      response
+      (adapt-turn-response response))))
+
+(defn lambda-turn-complete
+  [aws-creds function-name game player turn]
+  (let [game-data (assoc (completed-turn-game-data-for-bot game player turn)
+                    :game-id (game/id game)
+                    :turn-number (game/turn-number turn))
+        response (invoke-lambda-function aws-creds function-name "turn-complete" game-data turn-completed-validator)]
+    (if (keyword? response) response (keyword (:response response)))))
+
+(defn lambda-game-over [aws-creds function-name game player]
+  (let [game-data (assoc (game-over-data-for-bot game player) :game-id (game/id game))
+        response (invoke-lambda-function aws-creds function-name "game-over" game-data (constantly nil))]
+    (when (keyword? response) (warn "You don't seem to care about the results. That's fine. Good luck to you."))
+    :ok))
+
+(defrecord RRLambdaBot [aws-creds function-name player]
+  bots/RRBot
+  (new-game [_ game] (lambda-new-game aws-creds function-name game player))
+  (turn [_ game turn] (lambda-turn aws-creds function-name game player turn))
+  (turn-complete [_ game turn] (lambda-turn-complete aws-creds function-name game player turn))
+  (game-over [_ game _] (lambda-game-over aws-creds function-name game player)))
+
 (defmulti player-bot :connection-type)
 
 (defmethod player-bot :http
   [player]
   (->RRHttpBot (:port player) player))
+
+(defmethod player-bot :lambda
+  [player]
+  (->RRLambdaBot {:endpoint "ap-southeast-2"} (:lambda-function-name player) player))
 
 (defn wrap-game
   [app]
@@ -210,7 +282,6 @@
     (bots/turn (:bot-connector player) game turn)))
 
 (defn complete-player-turn [game player-id turn]
-  (println player-id)
   (with-player-connector
     game player player-id
     (bots/turn-complete (:bot-connector player) game turn)))
@@ -223,16 +294,16 @@
 
 (defroutes bot-routes*
            (POST "/new-game/:player-id" {:keys [game params]}
-             (resp/response {:response (player-ready game (:player-id params))}))
+             (resp/response {:response (or (player-ready game (:player-id params)) ::no-response)}))
 
            (POST "/turn/:player-id" {:keys [game params turn]}
-              (resp/response {:response (player-turn game (:player-id params) turn)}))
+              (resp/response {:response (or (player-turn game (:player-id params) turn) ::no-response)}))
 
            (POST "/complete-turn/:player-id" {:keys [game params turn]}
-             (resp/response {:response (complete-player-turn game (:player-id params) turn)}))
+             (resp/response {:response (or (complete-player-turn game (:player-id params) turn) ::no-response)}))
 
            (POST "/game-over/:player-id" {:keys [game params]}
-             (resp/response {:response (player-game-over game (:player-id params))})))
+             (resp/response {:response (or (player-game-over game (:player-id params)) ::no-response)})))
 
 (def transit-handler
   {"game"  (transit/read-handler game/map->RRGameState)
