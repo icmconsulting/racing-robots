@@ -138,11 +138,6 @@ button, input, select {
               align-self: flex-end;
             }
 
-            img.power-down {
-              width: 2em;
-              height: 2em;
-            }
-
             display: flex;
             align-items: stretch;
             flex-direction: column;
@@ -197,8 +192,44 @@ button, input, select {
               .scores {
                 flex-basis: 40%;
 
-                .powered-down {
+                display: flex;
+                flex-direction: row;
 
+                .score-label {
+                  font-size: @font-size-small;
+                  display: block;
+                }
+
+                .damage, .lives, .flags-touched, .powered-down {
+                  font-size: @font-size-h1;
+                  text-align: center;
+                  margin: 0 0.25em;
+
+                  &:after, &:before {
+                    .score-label();
+                  }
+                }
+
+                .damage:before {
+                  content: "damage";
+                }
+
+                .lives:before {
+                  content: "lives";
+                }
+
+                .flags-touched:before {
+                  content: "flags";
+                }
+
+                .powered-down {
+                  img {
+                    width: 1em;
+                    height: 1em;
+                  }
+                  &:before {
+                    content: "";
+                  }
                 }
               }
               .registers-this-turn {
@@ -221,8 +252,27 @@ button, input, select {
               }
             }
 
-            &.bottom-left > div, &.bottom-right > div {
-              flex-direction: column-reverse;
+            &.bottom-left, &.bottom-right {
+              > div {
+                flex-direction: column-reverse;
+
+                .scores {
+                  .damage, .lives, .flags-touched, .powered-down {
+                    &:before {
+                      content: none;
+                    }
+                  }
+                  .damage:after {
+                    content: "damage";
+                  }
+                  .lives:after {
+                    content: "lives";
+                  }
+                  .flags-touched:after {
+                    content: "flags";
+                  }
+                }
+              }
             }
 
             &.top-right, &.bottom-right {
@@ -232,6 +282,9 @@ button, input, select {
                 .player-images {
                   flex-direction: row-reverse;
                 }
+              }
+              .scores {
+                flex-direction: row-reverse;
               }
             }
 

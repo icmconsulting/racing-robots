@@ -521,18 +521,22 @@
 
 (defn registers-view
   [{:keys [id robot]}]
-  (if-let [turn-registers (:current-turn @game-state)]
-    (let [player-registers-this-turn (get (game/registers-for-turn turn-registers) id)
-          powering-down-next? (seq (filter #(= id (:id %)) (game/players-powering-down-next-turn turn-registers)))]
-      [:div.registers-this-turn
+  [:div.registers-this-turn
+   (cond
+     (:powered-down? robot)
+     [:span.powered-down [power-down-image-view]]
+
+     (:current-turn @game-state)
+     (let [current-turn (:current-turn @game-state)
+           player-registers-this-turn (get (game/registers-for-turn current-turn) id)
+           powering-down-next? (seq (filter #(= id (:id %)) (game/players-powering-down-next-turn current-turn)))]
        [:ul
         (map-indexed (fn [idx register]
                        ^{:key (str id "-" idx)}
                        [:li [register-image register]])
                      (concat player-registers-this-turn
-                             (map #(assoc % :locked? true)  (:locked-registers robot))))
-        (when powering-down-next? [:li [power-down-image-view]])]])
-    [:div.register-this-turn]))
+                             (map #(assoc % :locked? true) (:locked-registers robot))))
+        (when powering-down-next? [:li [power-down-image-view]])]))])
 
 
 (def player-colours ["red" "green" "blue" "yellow"])
@@ -542,12 +546,11 @@
   [:div.scores
    [:span.damage (:damage robot)]
    [:span.lives (:lives robot)]
-   (when (:powered-down? robot)
-     [:span.powered-down [power-down-image-view]])
-   [:span.flags-touched
-    (for [i (range 0 (count (:flags robot)))]
-      ^{:key i}
-      [:img {:src (.-src flags-touched-image)}])]])
+   (when (seq (:flags robot))
+     [:span.flags-touched
+      (for [i (range 0 (count (:flags robot)))]
+        ^{:key i}
+        [:img {:src (.-src flags-touched-image)}])])])
 
 (defn robot-destroyed
   []
@@ -574,8 +577,7 @@
                 [robot-active-scores robot]
                 [robot-destroyed])
 
-              (when-not powered-down?
-                [registers-view player])]
+              [registers-view player]]
 
              [[:div.player-dead
                [:h4 "RIP"]]]))]))
