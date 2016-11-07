@@ -1,14 +1,13 @@
 # TODO
 
 ## Test Harness
-- Player Bot connectors (lambda - remove protocol buffers)
 - Make log messages human readable
     - toggle button on control box
 - Add other bots 
 - Transit?
 
 ## Game viewer / Game
-- Fix layout for player scoresheet, show player id
+- Fix layout for player scoresheet, show player id <<< DO NEXT!!
 - No response received/invalid response received handling - deal 2 damage
 - Lambda use bonus application
 - Everytime player sleeps, chances of spontaneous combustion doubles - to prevent chronic sleepers

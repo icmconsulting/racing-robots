@@ -46,6 +46,6 @@
                          select-random-cards (constantly :no-action))
    :sleepy #(->RRLocalBot (atom {})
                           {:name "Sleepy bots inc."
-                           :robot-nae "Sleepy"
+                           :robot-name "Sleepy"
                            :avatar "/images/sleepy-avatar.jpg"}
                           select-random-cards-or-power-down maybe-power-down)})

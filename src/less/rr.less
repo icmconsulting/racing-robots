@@ -6,6 +6,9 @@
 @headings-font-family:    @font-family-monospace;
 @headings-font-weight:    700;
 
+@background-background: #222222;
+@background-text-colour: #9d9d9d;
+
 // mixins
 .full-screen {
   width: 100%;
@@ -39,7 +42,7 @@
   }
 
   .left, .right, .middle {
-    border: 1px dashed #bbbbbb;
+
   }
 
   .middle {
@@ -96,12 +99,23 @@ button, input, select {
       border-radius: 0px;
       padding: 0rem 0rem;
       height: 50px;
+      border: none;
     }
 
     .game-viewer-root {
       .three-column-flex();
 
+      .left {
+        background: linear-gradient(to right, #eeeeee 0%,#eeeeee 65%,white 100%);
+      }
+
+      .right {
+        background: linear-gradient(to left, #eeeeee 0%,#eeeeee 65%,white 100%);
+      }
+
       .left, .right {
+        color: #222222;
+        min-width: 20%;
 
         .score-sheet {
           height: 100%;
@@ -115,10 +129,6 @@ button, input, select {
             max-height: 50%;
             min-height: 25%;
             flex-grow: 1;
-
-            .background-base (@colour; @direction) {
-              background: linear-gradient(@direction, @colour 0%,#ffffff 60%) no-repeat;
-            }
 
             &.top-left, &.top-right {
               align-self: flex-start;
@@ -142,12 +152,46 @@ button, input, select {
 
               display: flex;
               flex-direction: column;
-              > h3 {
+
+              h3.player-name {
                 flex-basis: 40%;
 
-                img {
-                  width: 50px;
-                  height: 50px;
+                display: flex;
+                flex-direction: row;
+
+                font-size: 1em;
+                margin: 0.3em 0;
+
+                .full-name {
+                  display: inline-block;
+                  margin: 0 0.5em;
+                  padding-top: 0.25em;
+
+                  > span {
+                    display: block;
+                  }
+                  .team-name {
+                    font-size: 1em;
+                  }
+                  .player-id {
+                    font-size: 0.75em;
+                  }
+                  .robot-name {
+                    font-size: 1.1em;
+                  }
+                }
+                .player-images {
+                  display: flex;
+                  flex-direction: row;
+                  span {
+                    .thumbnail();
+                    display: inline-block;
+                    margin-bottom: 0px;
+                    img {
+                      width: 50px;
+                      height: 50px;
+                    }
+                  }
                 }
               }
               .scores {
@@ -181,28 +225,30 @@ button, input, select {
               flex-direction: column-reverse;
             }
 
-            &.top-left {
-              &.red {
-                .background-base(#ff0000; to bottom);
+            &.top-right, &.bottom-right {
+              h3.player-name {
+                flex-direction: row-reverse;
+
+                .player-images {
+                  flex-direction: row-reverse;
+                }
               }
+            }
+
+            &.top-left {
+
             }
 
             &.bottom-left {
-              &.green {
-                .background-base(#00ff00; to top);
-              }
+
             }
 
             &.top-right {
-              &.blue {
-                .background-base(#0000ff; to bottom);
-              }
+
             }
 
             &.bottom-right {
-              &.yellow {
-                .background-base(#fffd00; to top);
-              }
+
             }
 
           }
@@ -221,7 +267,7 @@ button, input, select {
         .game-controller-panel {
           text-align: center;
           align-self: flex-start;
-          margin-left: 5em;
+          margin-left: 2em;
           .well();
 
           .btn-group, .btn-group-vertical {

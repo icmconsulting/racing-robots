@@ -493,7 +493,9 @@
         [:div [:p "Check the developer console and the system log for more information."]]
         [:div [:p [bs/button {:bs-size  :large
                               :bs-style :primary
-                              :on-click #(dispatch! [:start-game!])} "Try again"]]]]
+                              :on-click #(dispatch! [:start-game!])} "Try again"]
+               [bs/button {:bs-size  :large
+                           :on-click #(dispatch! [:abandon-game!])} "Abandon!"]]]]
 
        [:h3 "Waiting for players..."])]))
 
@@ -557,9 +559,16 @@
         powered-down? (:powered-down? robot)]
     [:div.player-score-sheet {:class (str (clojure.core/name position) " " (get player-colours player-num))}
      (into [:div
-            [:h3.player-name name " (id: " (player-short-id player) ")"
-             [:img {:src avatar :alt name}]
-             [:img {:src (.-src robot-image) :alt name}]]]
+            [:h3.player-name
+             [:span.player-images
+              [:span
+               [:img {:src avatar :alt name}]]
+              [:span
+               [:img {:src (.-src robot-image) :alt name}]]]
+             [:span.full-name
+              [:span.robot-name (:robot-name player)]
+              [:span.team-name name]
+              [:span.player-id (player-short-id player)]]]]
            (if-not (= :dead (:state player))
              [(if-not (= :destroyed (:state robot))
                 [robot-active-scores robot]
