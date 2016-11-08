@@ -581,9 +581,7 @@
              [[robot-active-scores robot]
               [registers-view player]]
              [[:div
-               [:h4
-                [bs/glyph {:glyph "exclamation-sign"}]
-                " game over"]]]))]))
+               [:h4 "game over"]]]))]))
 
 (defn right-player-score-board
   []

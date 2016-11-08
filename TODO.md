@@ -7,7 +7,6 @@
 - Transit?
 
 ## Game viewer / Game
-- Fix layout for player scoresheet, show player id <<< DO NEXT!!
 - No response received/invalid response received handling - deal 2 damage
 - Lambda use bonus application
 - Everytime player sleeps, chances of spontaneous combustion doubles - to prevent chronic sleepers

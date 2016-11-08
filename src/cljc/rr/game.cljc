@@ -35,9 +35,11 @@
   (turn-number [turn])
   (deal-cards-to-players [turn])
   (player-enters-registers [turn player-id registers powering-down-next-turn?])
+  (player-invalid-response [turn player-id])
   (player-timedout [turn player-id])
   (registers-for-turn [turn])                               ;; => map from player-id -> []
   (registers-required-for-turn [turn])
+  (players-with-invalid-response [turn])
   (players-powering-down-next-turn [turn]))
 
 (defn player-by-id
@@ -452,12 +454,25 @@
                #(add-robot-event % :damage/repair-powered-down)
                #(assoc % :damage 0)) game))
 
+(def invalid-response-damage-penalty 5)
+
+(defn damage-players-with-invalid-responses
+  [game turn]
+  (reduce
+    (fn [game player-id]
+      (transform (vec (cons :state (player-robot-path player-id)))
+                 (comp
+                   #(add-robot-event % :damage/invalid-response)
+                   #(update % :damage + invalid-response-damage-penalty)) game))
+    game (players-with-invalid-response turn)))
+
 (defn execute-turn
   [game turn]
   {:pre [((every-pred :players :board :id :turns :program-deck) (:state game))]}
   (-> game
       (assoc-in [:state :turns (turn-number turn)] turn)
       (heal-powered-down-robots)
+      (damage-players-with-invalid-responses turn)
       (update-in [:state] execute-registers-for-turn turn)))
 
 (defn player-state-fn
@@ -644,9 +659,11 @@
   (player-enters-registers [turn player-id registers powering-down-next-turn?]
     (cond-> (assoc-in turn [:registers player-id] registers)
             powering-down-next-turn? (update-in [:powering-down] (comp set conj) player-id)))
+  (player-invalid-response [turn player-id] (update-in turn [:invalid] (comp set conj) player-id))
   (player-timedout [turn player-id] (update-in turn [:timed-out] (comp set conj) player-id))
   (registers-for-turn [turn] (:registers turn)) ;; => map from player -> []
   (registers-required-for-turn [turn] (registers-for-players turn)) ;; => map from player -> number
+  (players-with-invalid-response [turn] (:invalid turn))
   (players-powering-down-next-turn [turn] (map (partial player-by-id turn) (:powering-down turn))))
 
 (defn deck-for-next-turn

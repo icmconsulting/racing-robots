@@ -4,7 +4,8 @@
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [clojure.test :refer :all]
-            [rr.game :refer :all]))
+            [rr.game :refer :all]
+            [rr.game :as game]))
 
 (defn turn-with-registers
   ([registers] (turn-with-registers 0 registers))
@@ -15,7 +16,8 @@
      (deal-cards-to-players [turn])
      (player-timedout [turn player-id])
      (registers-for-turn [turn] registers)
-     (players-powering-down-next-turn [turn] powering-down))))
+     (players-powering-down-next-turn [turn] powering-down)
+     (players-with-invalid-response [turn] nil))))
 
 (def t turn-with-registers)
 
@@ -568,6 +570,17 @@
                             (clean-up turn {}))]
           (is (= :destroyed (player-state base-game 1)))
           (is (empty? (cards-dealt-to-player player1-id (start-next-turn base-game)))))))))
+
+(deftest players-invalid-response
+  (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"}] blank-board)
+        player1-id (get-in base-game [:state :players 0 :id])
+        player2-id (get-in base-game [:state :players 1 :id])
+        player3-id (get-in base-game [:state :players 2 :id])
+        next-turn (game/start-next-turn base-game)]
+    (testing "Player that responds with invalid response has 5 damage applied"
+      (let [next-turn (game/player-invalid-response next-turn player1-id)
+            game (game/complete-turn base-game next-turn)]
+        (is (= 5 (player-damage game 1)))))))
 
 (deftest robots-with-locked-registers
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] blank-board)
