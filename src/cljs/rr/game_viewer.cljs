@@ -533,34 +533,39 @@
        [:ul
         (map-indexed (fn [idx register]
                        ^{:key (str id "-" idx)}
-                       [:li [register-image register]])
+                       [:li.register-card [register-image register]])
                      (concat player-registers-this-turn
                              (map #(assoc % :locked? true) (:locked-registers robot))))
-        (when powering-down-next? [:li [power-down-image-view]])]))])
+        (when powering-down-next? [:li.powered-down [power-down-image-view]])]))])
 
 
 (def player-colours ["red" "green" "blue" "yellow"])
 
+(defn robot-flags-view
+  [robot]
+  (when (seq (:flags robot))
+    [:span.flags-touched
+     (for [i (range 0 (count (:flags robot)))]
+       ^{:key i}
+       [:img {:src (.-src flags-touched-image)}])]))
+
 (defn robot-active-scores
   [robot]
   [:div.scores
-   [:span.damage (:damage robot)]
+   (if-not (= :destroyed (:state robot))
+     [:span.damage (:damage robot)]
+     [:span.destroyed])
    [:span.lives (:lives robot)]
-   (when (seq (:flags robot))
-     [:span.flags-touched
-      (for [i (range 0 (count (:flags robot)))]
-        ^{:key i}
-        [:img {:src (.-src flags-touched-image)}])])])
-
-(defn robot-destroyed
-  []
-  [:div.scores [:span.destroyed "Robot destroyed - awaiting respawn"]])
+   [robot-flags-view robot]])
 
 (defn player-score-sheet
   [player-num position]
   (let [{:keys [name avatar robot robot-image id] :as player} (nth (game/players (:game @game-state)) player-num)
-        powered-down? (:powered-down? robot)]
-    [:div.player-score-sheet {:class (str (clojure.core/name position) " " (get player-colours player-num))}
+        powered-down? (:powered-down? robot)
+        dead? (= :dead (:state player))]
+    [:div.player-score-sheet {:class (clojure.string/join " " [(clojure.core/name position)
+                                                               (get player-colours player-num)
+                                                               (when dead? "player-dead")])}
      (into [:div
             [:h3.player-name
              [:span.player-images
@@ -572,15 +577,13 @@
               [:span.robot-name (:robot-name player)]
               [:span.team-name name]
               [:span.player-id (player-short-id player)]]]]
-           (if-not (= :dead (:state player))
-             [(if-not (= :destroyed (:state robot))
-                [robot-active-scores robot]
-                [robot-destroyed])
-
+           (if-not dead?
+             [[robot-active-scores robot]
               [registers-view player]]
-
-             [[:div.player-dead
-               [:h4 "RIP"]]]))]))
+             [[:div
+               [:h4
+                [bs/glyph {:glyph "exclamation-sign"}]
+                " game over"]]]))]))
 
 (defn right-player-score-board
   []

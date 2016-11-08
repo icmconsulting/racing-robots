@@ -6,8 +6,8 @@
 @headings-font-family:    @font-family-monospace;
 @headings-font-weight:    700;
 
-@background-background: #222222;
-@background-text-colour: #9d9d9d;
+@background-background: #eeeeee;
+@background-text-colour: #222222;
 
 // mixins
 .full-screen {
@@ -106,15 +106,15 @@ button, input, select {
       .three-column-flex();
 
       .left {
-        background: linear-gradient(to right, #eeeeee 0%,#eeeeee 65%,white 100%);
+        background: linear-gradient(to right, @background-background 0%,@background-background 65%,white 100%);
       }
 
       .right {
-        background: linear-gradient(to left, #eeeeee 0%,#eeeeee 65%,white 100%);
+        background: linear-gradient(to left, @background-background 0%,@background-background 65%,white 100%);
       }
 
       .left, .right {
-        color: #222222;
+        color: @background-text-colour;
         min-width: 20%;
 
         .score-sheet {
@@ -141,6 +141,11 @@ button, input, select {
             display: flex;
             align-items: stretch;
             flex-direction: column;
+
+            .score-label {
+              font-size: @font-size-small;
+              display: block;
+            }
 
             > div {
               flex-grow: 1;
@@ -195,18 +200,22 @@ button, input, select {
                 display: flex;
                 flex-direction: row;
 
-                .score-label {
-                  font-size: @font-size-small;
-                  display: block;
-                }
+                min-height: 4.9em;
 
-                .damage, .lives, .flags-touched, .powered-down {
+                .damage, .lives, .flags-touched, .powered-down, .destroyed {
                   font-size: @font-size-h1;
                   text-align: center;
                   margin: 0 0.25em;
 
                   &:after, &:before {
                     .score-label();
+                  }
+                }
+
+                .destroyed {
+                  background: url('../images/destroyed-icon.png') no-repeat center center;
+                  &:before {
+                    content: "destroyed!";
                   }
                 }
 
@@ -235,16 +244,30 @@ button, input, select {
               .registers-this-turn {
                 flex-basis: 20%;
 
+                .powered-down {
+                  margin: 0 1.25em 10px 1.25em;
+                  img {
+                    width: 2em;
+                    height: 2em;
+                  }
+                }
+
                 ul {
                   list-style: none;
                   width: 100%;
+                  padding-left: 0;
+
                   li {
                     display: inline-block;
                     margin: 0 0.25em;
 
-                    img {
+                    &.register-card img {
                       width: 1.75em;
                       height: 2.5em;
+                    }
+
+                    &.powered-down {
+                      .powered-down();
                     }
                   }
                 }
@@ -257,7 +280,7 @@ button, input, select {
                 flex-direction: column-reverse;
 
                 .scores {
-                  .damage, .lives, .flags-touched, .powered-down {
+                  .damage, .lives, .flags-touched, .powered-down, .destroyed {
                     &:before {
                       content: none;
                     }
@@ -270,6 +293,12 @@ button, input, select {
                   }
                   .flags-touched:after {
                     content: "flags";
+                  }
+                  .destroyed {
+                    padding-top: 1.43em;
+                    &:after {
+                      content: "destroyed!";
+                    }
                   }
                 }
               }
@@ -286,24 +315,19 @@ button, input, select {
               .scores {
                 flex-direction: row-reverse;
               }
+              .registers-this-turn {
+                text-align: right;
+
+              }
             }
 
-            &.top-left {
+            &.player-dead {
+              color: lighten(@background-text-colour, 60%);
 
+              img {
+                opacity: 0.4;
+              }
             }
-
-            &.bottom-left {
-
-            }
-
-            &.top-right {
-
-            }
-
-            &.bottom-right {
-
-            }
-
           }
         }
 
