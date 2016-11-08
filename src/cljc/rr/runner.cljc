@@ -59,9 +59,10 @@
 (defn apply-bot-responses
   [turn player-with-responses]
   (reduce (fn [turn {:keys [resp id]}]
-            (game/player-enters-registers turn id (:registers resp) (true? (:powering-down resp))))
+            (if (#{:rr.connectors/invalid-response :rr.connectors/no-response} resp)
+              (game/player-invalid-response turn id)
+              (game/player-enters-registers turn id (:registers resp) (true? (:powering-down resp)))))
           turn player-with-responses))
-
 
 (defn next-turn
   "Returns a chan which will eventually have the updated game placed onto after all players have submitted their turns"

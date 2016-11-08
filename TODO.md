@@ -7,7 +7,7 @@
 - Transit?
 
 ## Game viewer / Game
-- No response received/invalid response received handling - deal 2 damage
+- Fix avatar size issue
 - Lambda use bonus application
 - Everytime player sleeps, chances of spontaneous combustion doubles - to prevent chronic sleepers
 - Use consistent board square pieces (the ones that match the bots)

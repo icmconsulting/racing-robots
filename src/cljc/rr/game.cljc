@@ -463,7 +463,7 @@
       (transform (vec (cons :state (player-robot-path player-id)))
                  (comp
                    #(add-robot-event % :damage/invalid-response)
-                   #(update % :damage + invalid-response-damage-penalty)) game))
+                   #(apply-damage-to-robot % invalid-response-damage-penalty)) game))
     game (players-with-invalid-response turn)))
 
 (defn execute-turn

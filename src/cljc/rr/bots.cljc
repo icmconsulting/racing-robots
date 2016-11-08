@@ -33,10 +33,22 @@
       (select-random-cards nil dealt-cards)
       (when (< i 7) {:powering-down true}))))
 
+(defn maybe-invalid-response
+  [& args]
+  (if (< (rand-int 10) 8)
+    :rr.connectors/invalid-response
+    (apply select-random-cards-or-power-down args)))
+
 (defn maybe-power-down
   [_ _]
   :no-action ;; TODO - choose to continue powering down or not
   )
+
+(defn maybe-invalid-complete-turn-response
+  [_ _]
+  (if (< (rand-int 10) 8)
+    :rr.connectors/invalid-response
+    :no-action))
 
 (def local-bots
   {:zippy #(->RRLocalBot (atom {})
@@ -48,4 +60,9 @@
                           {:name "Sleepy bots inc."
                            :robot-name "Sleepy"
                            :avatar "/images/sleepy-avatar.jpg"}
-                          select-random-cards-or-power-down maybe-power-down)})
+                          select-random-cards-or-power-down maybe-power-down)
+   :fumbly #(->RRLocalBot (atom {})
+                          {:name "Incompotent Business Machines"
+                           :robot-name "Fumbly"
+                           :avatar "/images/fumbly-avatar.jpg"}
+                          maybe-invalid-response maybe-invalid-complete-turn-response)})

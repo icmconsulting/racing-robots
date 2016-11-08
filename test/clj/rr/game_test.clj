@@ -580,7 +580,14 @@
     (testing "Player that responds with invalid response has 5 damage applied"
       (let [next-turn (game/player-invalid-response next-turn player1-id)
             game (game/complete-turn base-game next-turn)]
-        (is (= 5 (player-damage game 1)))))))
+        (is (= 5 (player-damage game 1)))))
+
+    (testing "Player that receives a penalty that takes robot over 10 damage has robot destroyed"
+      (let [next-turn (game/player-invalid-response next-turn player1-id)
+            game (-> base-game
+                     (update-in [:state :players 0 :robot] merge {:damage 9})
+                     (game/complete-turn  next-turn))]
+        (is (= :destroyed (player-state game 1)))))))
 
 (deftest robots-with-locked-registers
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] blank-board)
