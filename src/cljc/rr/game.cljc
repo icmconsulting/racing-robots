@@ -52,7 +52,7 @@
   [event-type & args]
   {:time (timestamp)
    :type event-type
-   :args (when (first args) (seq args))
+   :args (when (first args) (vec args))
    :turn (when *current-turn* (turn-number *current-turn*))})
 
 (defn add-robot-event
@@ -697,7 +697,9 @@
 (defn do-update-player-profile
   [game player-id profile]
   (transform [:state :players ALL (if-path [:id (partial = player-id)] [])]
-             #(merge % (select-keys profile [:name :robot-name :avatar]))
+             (comp
+               #(assoc-in % [:robot :name] (:robot-name %))
+               #(merge % (select-keys profile [:name :robot-name :avatar])))
              game))
 
 (defrecord RRGameState [state]

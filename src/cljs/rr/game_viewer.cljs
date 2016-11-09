@@ -11,7 +11,7 @@
             [rr.logger :as logger]
             [rr.game :as game]
             [rr.runner :as runner]
-            [rr.utils :refer [image-obj]])
+            [rr.utils :refer [image-obj player-short-id]])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (def empty-game {:new-game {:players [{} {} {} {}] :state :not-started :board :random}})
@@ -397,10 +397,6 @@
 (defn game-not-started?
   [game]
   (= :not-started (get-in game [:new-game :state])))
-
-(defn player-short-id
-  [player]
-  (second (re-find #"^(\w+)-" (:id player))))
 
 (defn single-winner-game-over
   [winner]

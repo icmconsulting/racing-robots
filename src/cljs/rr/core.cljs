@@ -4,6 +4,7 @@
               [secretary.core :as secretary :include-macros true]
               [accountant.core :as accountant]
               [rr.bs :as bs]
+              [rr.logger :as logger]
               [rr.game-viewer :as game-viewer]
               [rr.board-browser :as board-browser]))
 
@@ -68,4 +69,5 @@
      (fn [path]
        (secretary/locate-route path))})
   (accountant/dispatch-current!)
+  (logger/print-log-header)
   (mount-root))
