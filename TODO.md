@@ -7,7 +7,6 @@
 - Transit?
 
 ## Game viewer / Game
-- Fix avatar size issue
 - Lambda use bonus application
 - Everytime player sleeps, chances of spontaneous combustion doubles - to prevent chronic sleepers
 - Use consistent board square pieces (the ones that match the bots)
