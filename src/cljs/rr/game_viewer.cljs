@@ -402,7 +402,7 @@
   [winner]
   [[bs/row [bs/col {:xs 12}
             [:h2.text-center [:span "Winner: " [:span.winner (:name winner) " (" (player-short-id winner) ")"]]]]]
-   [bs/row
+   [bs/row {:class "avatars"}
     [bs/col {:xs 12 :class-name "text-center"}
      [:img {:src (:avatar winner)}]
      [:img {:src (.-src (:robot-image winner))}]]]])
@@ -413,7 +413,7 @@
     [bs/col {:xs 12}
      [:h2.text-center [:span "Tie: "
                        [:span.winner (clojure.string/join ", " (map :name winners))]]]]]
-   [bs/row
+   [bs/row {:class "avatars"}
     (let [col-size (/ 12 (count winners))]
       (for [winner winners]
         ^{:key (:id winner)}
@@ -423,11 +423,12 @@
 
 (defn player-results-table
   [players]
-  [bs/table {:striped true :condensed true :fill true}
+  [bs/table {:striped true :condensed true :fill true :class "results"}
     [:thead
      [:tr
       [:th]
-      [:th "Player"]
+      [:th "Player team"]
+      [:th "Robot name"]
       [:th "End status"]
       [:th "Squares moved"]
       [:th "Flags touched"]
@@ -440,11 +441,13 @@
    [:tbody
     (for [player players]
       (let [robot (:robot player)
-            dead? (= :dead (:state player))]
+            dead? (= :dead (:state player))
+            winner? (= :winner (:victory-state player))]
         ^{:key (:id player)}
-        [:tr
-         [:td (when (= :winner (:victory-state player)) [bs/glyph {:glyph "star"}])]
+        [:tr {:class (when winner? "winner")}
+         [:td (when winner? [bs/glyph {:glyph "star"}])]
          [:td (:name player) " (" (player-short-id player) ")"]
+         [:td (:robot-name player)]
          [:td (if dead? "Dead" "active")]
          [:td (count (filter (comp #{:belt/moved-by-belt :move/north :move/east :move/south :move/west} :type)
                              (:events robot)))]
@@ -460,7 +463,7 @@
   []
   (let [[_ players] (game/victory-status (:game @game-state))
         winners (filter #(= :winner (:victory-state %)) players)]
-    [bs/panel
+    [bs/panel {:class "game-over"}
      (into [bs/grid
             [bs/row [bs/col {:xs 12} [:h1.text-center "Game over!"]]]]
            (concat
@@ -594,15 +597,19 @@
 
 (defn game-viewer-left-section
   []
-  [:section.left
-    (when (:game @game-state)
-      [left-player-score-board])])
+  (when (or (nil? (:game @game-state))
+            (not (game-finished? @game-state)))
+    [:section.left
+     (when (:game @game-state)
+       [left-player-score-board])]))
 
 (defn game-viewer-right-section
   []
-  [:section.right
-   (when (:game @game-state)
-     [right-player-score-board])])
+  (when (or (nil? (:game @game-state))
+            (not (game-finished? @game-state)))
+    [:section.right
+     (when (:game @game-state)
+       [right-player-score-board])]))
 
 (defn game-viewer-root []
   [:section.game-viewer-root
