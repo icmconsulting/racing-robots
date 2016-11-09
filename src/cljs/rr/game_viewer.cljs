@@ -261,6 +261,7 @@
    :bot-instance-fn #(ajax-bot/->RRAjaxBot (:id %))
    :connection-type :lambda
    :lambda-function-name (:lambda-function-name player)
+   :bonus-modifier game/bonus-2-damage-points-modifier
    :robot-image bot-image})
 
 (defmethod apply-player-bot :default

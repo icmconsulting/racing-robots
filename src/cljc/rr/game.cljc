@@ -53,7 +53,7 @@
   {:time (timestamp)
    :type event-type
    :args (when (first args) (seq args))
-   :turn (turn-number *current-turn*)})
+   :turn (when *current-turn* (turn-number *current-turn*))})
 
 (defn add-robot-event
   [robot event-type & args]
@@ -452,7 +452,7 @@
   (transform [:state :players ALL (if-path [:robot :powered-down? true?] [:robot])]
              (comp
                #(add-robot-event % :damage/repair-powered-down)
-               #(assoc % :damage 0)) game))
+               #(assoc % :damage (min 0 (:damage %)))) game))
 
 (def invalid-response-damage-penalty 5)
 
@@ -523,6 +523,21 @@
         all-player-squares (set (keep (comp :position :robot) players))]
     (rand-nth (seq (clojure.set/difference all-adj-squares all-player-squares)))))
 
+(defn respawn-robot
+  [new-position robot]
+  (merge robot {:position         new-position
+                :locked-registers []
+                :direction        (rand-nth [:west :east :north :south])
+                :damage           2}))
+
+(defn apply-player-bonus
+  [{:keys [bonus-modifier]} robot]
+  (if bonus-modifier
+    (-> robot
+        (bonus-modifier)
+        (add-robot-event :player/bonus-applied))
+    robot))
+
 (defn respawn
   [state {:keys [robot id] :as player}]
   (if (and (zero? (:lives robot)) (not= :dead (:state player)))
@@ -533,12 +548,11 @@
     (let [player-on-archive (some #(= (:archive-marker robot) (get-in % [:robot :position])) (:players state))]
       (->> state
            (transform (conj (player-robot-path id) :lives) dec)
-           (transform (player-robot-path id) #(merge % {:position  (if player-on-archive
-                                                                     (random-adjacent-square state (:archive-marker robot))
-                                                                     (:archive-marker robot))
-                                                        :locked-registers []
-                                                        :direction (rand-nth [:west :east :north :south])
-                                                        :damage    2}))
+           (transform (player-robot-path id) (comp
+                                               (partial apply-player-bonus player)
+                                               (partial respawn-robot (if player-on-archive
+                                                                            (random-adjacent-square state (:archive-marker robot))
+                                                                            (:archive-marker robot)))))
            (transform (player-robot-path id) #(add-robot-event % :player/lost-life))))))
 
 (defn players-with-destroyed-robots
@@ -794,6 +808,10 @@
    :locked-registers []
    :events []})
 
+(defn bonus-2-damage-points-modifier
+  [robot]
+  (update robot :damage - 2))
+
 (defn player-with-robot
   [board idx player]
   (let [start-position (docking-bay-position board (inc idx))]
@@ -814,6 +832,10 @@
     (assoc player :bot-instance (bot-instance-fn player))
     player))
 
+(defn player-with-bonus-modifier
+  [player]
+  (update player :robot (partial apply-player-bonus player)))
+
 (defn new-game
   [players board]
   (let [program-deck (shuffle program-card-deck)]
@@ -821,7 +843,11 @@
       {:id           (uuid-str)
        :program-deck program-deck
        :board        board
-       :players      (vec (map-indexed (comp player-with-bot-instance player-with-game-id (partial player-with-robot board)) (shuffle players)))
+       :players      (vec (map-indexed (comp player-with-bonus-modifier
+                                             player-with-bot-instance
+                                             player-with-game-id
+                                             (partial player-with-robot board))
+                                       (shuffle players)))
        :turns        {}})))
 
 ;; TODO:

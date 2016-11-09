@@ -25,7 +25,7 @@
 (defn fix-player-for-send
   [p]
   (-> p
-      (dissoc :bot-instance :bot-instance-fn :robot-image)
+      (dissoc :bot-instance :bot-instance-fn :robot-image :bonus-modifier)
       (update :robot dissoc :events)))
 
 (deftype GameHandler []
