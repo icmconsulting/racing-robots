@@ -1,12 +1,11 @@
 (ns rr.runner
-  (:require [taoensso.timbre :as timbre :refer [info debug]]
+  (:require [taoensso.timbre :as timbre :refer [info debug warn]]
             [rr.game :as game]
             [rr.bots :as bots]
     #?(:cljs [cljs.core.async :as async]
        :clj
             [clojure.core.async :as async :refer [go go-loop]]))
   #?(:cljs (:require-macros [cljs.core.async.macros :refer [go go-loop]])))
-
 
 (defn send-and-collect-responses
   [players send-fn reduce-responses-fn]
@@ -56,12 +55,20 @@
     [(bots/turn bot-instance game (assoc (select-keys player-turn [:dealt])
                                     :turn-number (game/turn-number turn)))]))
 
+(defn enter-player-registers
+  [turn {:keys [dealt id name]} {:keys [registers powering-down]}]
+  (if-let [extra-cards (seq (clojure.set/difference (set registers) (set dealt)))]
+    (do
+      (warn "Cheater! Player [" name "] tried to play register cards that weren't dealt to them!" extra-cards)
+      (game/player-invalid-response turn id))
+    (game/player-enters-registers turn id registers (true? powering-down))))
+
 (defn apply-bot-responses
   [turn player-with-responses]
-  (reduce (fn [turn {:keys [resp id]}]
+  (reduce (fn [turn {:keys [resp id] :as player}]
             (if (#{:rr.connectors/invalid-response :rr.connectors/no-response} resp)
               (game/player-invalid-response turn id)
-              (game/player-enters-registers turn id (:registers resp) (true? (:powering-down resp)))))
+              (enter-player-registers turn player resp)))
           turn player-with-responses))
 
 (defn next-turn

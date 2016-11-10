@@ -1,6 +1,7 @@
 (ns rr.bots
-  (:require #?(:cljs [cljs.core.async :as async]
-               :clj [clojure.core.async :as async :refer [go go-loop]]))
+  (:require [rr.game :as game]
+    #?(:cljs [cljs.core.async :as async]
+       :clj  [clojure.core.async :as async :refer [go go-loop]]))
   #?(:cljs (:require-macros [cljs.core.async.macros :refer [go go-loop]])))
 
 ;; All bot funcs return a chan
@@ -50,6 +51,14 @@
     :rr.connectors/invalid-response
     :no-action))
 
+(defn maybe-cheat-response
+  [_ dealt-cards]
+  (if (< (rand-int 10) 8)
+    ;; cheat
+    {:registers     (take 5 (shuffle game/program-card-deck))
+     :powering-down (rand-nth (conj (repeat 9 true) [false]))}
+    (select-random-cards nil dealt-cards)))
+
 (def local-bots
   {:zippy #(->RRLocalBot (atom {})
                          {:name "Team zippy"
@@ -65,4 +74,9 @@
                           {:name "Incompotent Business Machines"
                            :robot-name "Fumbly"
                            :avatar "/images/fumbly-avatar.jpg"}
-                          maybe-invalid-response maybe-invalid-complete-turn-response)})
+                          maybe-invalid-response maybe-invalid-complete-turn-response)
+   :sneaky #(->RRLocalBot (atom {})
+                          {:name "Pyramids Engineering"
+                           :robot-name "Sneaky"
+                           :avatar "/images/sneaky-avatar.png"}
+                          maybe-cheat-response maybe-power-down)})
