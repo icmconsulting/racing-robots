@@ -174,6 +174,10 @@
             [:game-next-turn!]
 
             (and (nil? (:current-turn old-game-state)) (:current-turn new-game-state))
+            [:game-clean-up-turn!]
+
+            ;; register running just finished
+            (and (nil? (:active-register new-game-state)) (some? (:active-register old-game-state)))
             [:game-clean-up-turn!])]
       (when next-dispatch
         (go (async/<! (async/timeout autoplay-tick-ms))
