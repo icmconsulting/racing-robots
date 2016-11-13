@@ -85,12 +85,38 @@
     (-> (assoc game-state :waiting-for-players? true)
         (push-game-state (:game game-state)))))
 
+(def register-tick-ms 2000)
+
 (defmethod dispatch-event-type :game-turn-responses-received!
   [game-state [_ [turn game-with-turn-changes]]]
-  (assoc game-state :game (last game-with-turn-changes)
-                    :players-after-each-register (map game/players game-with-turn-changes)
-                    :current-turn turn
-                    :waiting-for-players? false))
+  (if (:show-each-register? game-state)
+    (do
+      (go-loop [registers (rest game-with-turn-changes)
+                num 0]
+               (if (first registers)
+                 (do
+                   (dispatch! [:next-register! num turn (first registers)])
+                   (async/<! (async/timeout register-tick-ms))
+                   (recur (rest registers) (inc num)))
+                 (dispatch! [:no-more-registers!])))
+      (assoc game-state :current-state turn))
+    (assoc game-state :game (last game-with-turn-changes)
+                      :players-after-each-register (map game/players game-with-turn-changes)
+                      :current-turn turn
+                      :waiting-for-players? false)))
+
+(defmethod dispatch-event-type :next-register!
+  [game-state [_ number turn after-register-game-state]]
+  (let [new-attrs {:game            after-register-game-state
+                   :active-register number
+                   :current-turn turn}]
+    (merge game-state new-attrs)))
+
+(defmethod dispatch-event-type :no-more-registers!
+  [game-state _]
+  (-> game-state
+      (dissoc :active-register)
+      (assoc :waiting-for-players? false)))
 
 (defmethod dispatch-event-type :game-clean-up-turn!
   [game-state _]
@@ -164,10 +190,15 @@
   (remove-watch game-state :autoplay)
   (assoc state :autoplay? false))
 
+(defmethod dispatch-event-type :toggle-each-register!
+  [state _]
+  (update state :show-each-register? not))
+
 (defn game-controller-panel
   []
   (let [waiting? (:waiting-for-players? @game-state)
-        autoplaying? (:autoplay? @game-state)]
+        autoplaying? (:autoplay? @game-state)
+        show-each-register? (true? (:show-each-register? @game-state))]
     [:div.game-controller-panel
      [bs/button-group {:vertical true :class-name (when autoplaying? :pulse)}
       (when-not (:current-turn @game-state)
@@ -194,7 +225,13 @@
         [bs/button {:bs-size "small"
                     :disabled waiting?
                     :on-click #(dispatch! [:start-autoplay!])}
-         [bs/glyph {:glyph "play"}] "Autoplay"])]
+         [bs/glyph {:glyph "play"}] "Autoplay"])
+
+      [bs/button {:bs-size  "small"
+                  :on-click #(dispatch! [:toggle-each-register!])
+                  :active show-each-register?
+                  :disabled (or waiting? autoplaying?)}
+       [bs/glyph {:glyph "resize-full"}] "View each register"]]
 
      [bs/button-group {:vertical true}
       [bs/button {:bs-size  "small"
@@ -531,13 +568,16 @@
      (let [current-turn (:current-turn @game-state)
            player-registers-this-turn (get (game/registers-for-turn current-turn) id)
            powering-down-next? (seq (filter #(= id (:id %)) (game/players-powering-down-next-turn current-turn)))]
-       [:ul
-        (map-indexed (fn [idx register]
-                       ^{:key (str id "-" idx)}
-                       [:li.register-card [register-image register]])
-                     (concat player-registers-this-turn
-                             (map #(assoc % :locked? true) (:locked-registers robot))))
-        (when powering-down-next? [:li.powered-down [power-down-image-view]])]))])
+       (let [active-register (:active-register @game-state)]
+         [:ul
+          (map-indexed (fn [idx register]
+                         ^{:key (str id "-" idx)}
+                         [:li.register-card
+                          {:class (when (= idx active-register) "active")}
+                          [register-image register]])
+                       (concat player-registers-this-turn
+                               (map #(assoc % :locked? true) (:locked-registers robot))))
+          (when powering-down-next? [:li.powered-down [power-down-image-view]])])))])
 
 
 (def player-colours ["red" "green" "blue" "yellow"])

@@ -259,15 +259,27 @@ button, input, select {
                   li {
                     display: inline-block;
                     margin: 0 0.25em;
+                    padding: 0.25em 0;
 
-                    &.register-card img {
-                      width: 1.75em;
-                      height: 2.5em;
+                    &.register-card {
+                      &.active {
+                        border-bottom: 0.4em solid black;
+                      }
+
+                      img {
+                        width: 1.75em;
+                        height: 2.5em;
+                      }
                     }
 
                     &.powered-down {
                       .powered-down();
                     }
+                  }
+
+                  ul.has-active {
+
+
                   }
                 }
 
@@ -299,6 +311,14 @@ button, input, select {
                       content: "destroyed!";
                     }
                   }
+                }
+
+                .registers-this-turn {
+                  .register-card.active {
+                    border-bottom: none;
+                    border-top: 0.4em solid black;
+                  }
+
                 }
               }
             }
