@@ -14,6 +14,10 @@
   #?(:clj (.getTime (Date.))
      :cljs (.getTime (js/Date.))))
 
+(defn abs
+  [x]
+  (#?(:clj Math/abs :cljs js/Math.abs) x))
+
 (defprotocol RRBoard
   (board-size [board])
   (rows [board])
@@ -25,6 +29,7 @@
   (board [game])
   (start-next-turn [game]) ;; => returns a RRGameTurn
   (complete-turn [game turn])
+  (after-each-register-for-turn [game turn]) ;; => seq of [game] for each register in turn
   (clean-up [game turn player-commands])
   (update-player-profile [game player-id profile])
   (players  [game])
@@ -136,11 +141,11 @@
                          position)
           new-board-square (square-at board new-position)
           [new-attrs event] (cond
-                      (nil? new-board-square) [destroyed-robot-attributes :destroyed/fell-off-board]
-                      :else [{:position new-position}
-                             (if (= position new-position)
-                               :move/blocked
-                               (keyword "move" (name direction)))])
+                              (nil? new-board-square) [destroyed-robot-attributes :destroyed/fell-off-board]
+                              :else [{:position new-position}
+                                     (if (= position new-position)
+                                       :move/blocked
+                                       (keyword "move" (name direction)))])
           new-state (update-robot-for-player state (:id player) new-attrs [event pushed-by-robot])
           owner-player-at-new-position (owner-player-at-position state new-position)]
       (if (and owner-player-at-new-position
@@ -148,30 +153,37 @@
                      (:id player)))
         (move-player-robot-by-single-square new-state
                                             (assoc-in owner-player-at-new-position
-                                               [:robot :direction] direction)
+                                                      [:robot :direction] direction)
                                             robot)
         new-state))
     state))
 
-(defmethod execute-player-register* :move
-  [state [player-id {:keys [value]}]]
-  (reduce
-    (fn [state _] (move-player-robot-by-single-square state (player-by-id state player-id)))
-    state (range 0 value)))
-
 (def rotate-delta
-  {:left {:north :west
-          :west :south
-          :south :east
-          :east :north}
-   :right {:north :east
-           :east :south
-           :south :west
-           :west :north}
+  {:left   {:north :west
+            :west  :south
+            :south :east
+            :east  :north}
+   :right  {:north :east
+            :east  :south
+            :south :west
+            :west  :north}
    :u-turn {:north :south
             :south :north
-            :east :west
-            :west :east}})
+            :east  :west
+            :west  :east}})
+
+(defmethod execute-player-register* :move
+  [state [player-id {:keys [value]}]]
+  (let [backward? (= -1 value)]
+    (reduce
+      (fn [state v]
+        (move-player-robot-by-single-square state
+                                            (if backward?
+                                              (update-in (player-by-id state player-id)
+                                                         [:robot :direction]
+                                                         (:u-turn rotate-delta))
+                                              (player-by-id state player-id))))
+      state (if backward? [value] (range 0 value)))))
 
 (defmethod execute-player-register* :rotate
   [state [player-id {:keys [value]}]]
@@ -441,11 +453,11 @@
 
 (defn execute-registers-for-turn
   [state turn]
-  (reduce execute-register-number state
-          (-> turn
-              (registers-for-turn)
-              (apply-locked-registers state)
-              (registers-by-execution-order))))
+  (reductions execute-register-number state
+              (-> turn
+                  (registers-for-turn)
+                  (apply-locked-registers state)
+                  (registers-by-execution-order))))
 
 (defn heal-powered-down-robots
   [game]
@@ -469,11 +481,12 @@
 (defn execute-turn
   [game turn]
   {:pre [((every-pred :players :board :id :turns :program-deck) (:state game))]}
-  (-> game
-      (assoc-in [:state :turns (turn-number turn)] turn)
-      (heal-powered-down-robots)
-      (damage-players-with-invalid-responses turn)
-      (update-in [:state] execute-registers-for-turn turn)))
+  (let [base-game (-> game
+                      (assoc-in [:state :turns (turn-number turn)] turn)
+                      (heal-powered-down-robots)
+                      (damage-players-with-invalid-responses turn))
+        state-changes (execute-registers-for-turn (:state base-game) turn)]
+    (map #(assoc base-game :state %) state-changes)))
 
 (defn player-state-fn
   [{:keys [board]}]
@@ -707,7 +720,8 @@
   (id [game] (:id state))
   (board [game] (get-in game [:state :board]))
   (start-next-turn [game] (new-game-turn (:state game)))
-  (complete-turn [game turn] (binding [*current-turn* turn] (execute-turn game turn)))
+  (complete-turn [game turn] (binding [*current-turn* turn] (last (execute-turn game turn))))
+  (after-each-register-for-turn [game turn] (binding [*current-turn* turn] (doall (execute-turn game turn))))
   (update-player-profile [game player-id profile] (do-update-player-profile game player-id profile))
   (players  [game] (get-in game [:state :players]))
   (turns [game] (get-in game [:state :turns]))
@@ -739,10 +753,6 @@
 (s/def ::board-squares #(= 1 (count (distinct (map count %)))))
 
 (s/def ::seq-board (s/keys :req-un [::board-squares]))
-
-(defn abs
-  [x]
-  (#?(:clj Math/abs :cljs js/Math.abs) x))
 
 (defn adjacent-to?
   "Is p2 in a square next to p1, incl. diagonally?"

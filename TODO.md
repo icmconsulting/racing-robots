@@ -2,9 +2,8 @@
 
 ## Game viewer / Game
 - Incrementally show result after each register
+- Replay last
 
-- Viewable player archive marker
-- show game id
 - Bots destroyed -> explosion sprite
 
 ## Boards

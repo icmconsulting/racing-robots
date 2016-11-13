@@ -79,7 +79,7 @@
                                 (partial bot-response-for-turn game turn)
                                 (fn [responses]
                                   (let [completed-turn (apply-bot-responses turn responses)]
-                                    [completed-turn (game/complete-turn game completed-turn)])))))
+                                    [completed-turn (game/after-each-register-for-turn game completed-turn)])))))
 
 (defn bot-response-complete-turn
   [game turn turn-player]

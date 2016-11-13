@@ -96,6 +96,14 @@
                                 (t {player-id (vec (repeat 5 {:type :move :value 1 :priority 100}))}))
                  1)))))
 
+    (testing "Moving robot backward"
+      (let [base-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :south)
+                          (assoc-in [:state :players 0 :robot :position] [0 6]))
+            game-after-move (complete-turn base-game
+                                           (t {player-id (vec (repeat 5 {:type :move :value -1 :priority 100}))}))]
+        (is (= [0 1] (player-position game-after-move 1)))
+        (is (= :south (player-direction game-after-move 1)))))
+
     (testing "Moving robot off board destroys it"
       (let [base-games [(assoc-in base-game [:state :players 0 :robot :direction] :south)
                         (-> (assoc-in base-game [:state :players 0 :robot :direction] :east)

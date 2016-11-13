@@ -87,7 +87,8 @@
 
 (defmethod dispatch-event-type :game-turn-responses-received!
   [game-state [_ [turn game-with-turn-changes]]]
-  (assoc game-state :game game-with-turn-changes
+  (assoc game-state :game (last game-with-turn-changes)
+                    :players-after-each-register (map game/players game-with-turn-changes)
                     :current-turn turn
                     :waiting-for-players? false))
 
