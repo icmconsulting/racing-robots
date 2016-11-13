@@ -33,5 +33,4 @@
 
 (comment
   (start-server)
-  (stop-server)
-  )
+  (stop-server))

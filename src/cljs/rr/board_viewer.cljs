@@ -36,25 +36,24 @@
         {:width  optimal-width
          :height (* rows row-height)}))))
 
-(def base-square-image (image-obj "/images/floor-tile.jpg"))
-(def base-square-image-rivets (image-obj "/images/floor-rivets.jpg"))
+(def base-square-image (image-obj "/images/floor.gif"))
 (def flag-image (image-obj "/images/flag.png"))
-(def repair-image (image-obj "/images/repair.png"))
+(def repair-image (image-obj "/images/repair.gif"))
 (def pit-image (image-obj "/images/pit.jpg"))
-(def belt-arrow-image (image-obj "/images/belt-arrow.png"))
-(def belt-express-arrow-image (image-obj "/images/belt-express-arrow.png"))
-(def belt-tubes-pattern-image (image-obj "/images/belt-tubes-pattern.jpg"))
-(def rotate-right-image (image-obj "/images/rotate-right.png"))
-(def rotate-left-image (image-obj "/images/rotate-left.png"))
+(def belt-arrow-image (image-obj "/images/cnv_1_east.gif"))
+(def belt-express-arrow-image (image-obj "/images/cnv_2_east.gif"))
+(def rotate-right-image (image-obj "/images/rotate_clock.gif"))
+(def rotate-left-image (image-obj "/images/rotate_counter.gif"))
 (def laser-point-image (image-obj "/images/laser-point.png"))
 (def powered-down-image (image-obj "/images/recharge.png"))
+(def wall-image (image-obj "/images/wall.gif"))
 
 (defn base-renderer
   [_ {:keys [height width x y]}]
   (fn []
     [k/image {:height height
               :width  height
-              :image  base-square-image-rivets
+              :image  base-square-image
               :x      x
               :y      y}]))
 
@@ -72,11 +71,11 @@
   [{:keys [repair]} {:keys [height width x y]}]
   (when repair
     (fn []
-      [k/image {:height (* height 0.7)
-                :width  (* width 0.7)
+      [k/image {:height height
+                :width  width
                 :image  repair-image
-                :x      (+ x (* width 0.15))
-                :y      (+ y (* height 0.15)) }])))
+                :x      x
+                :y      y }])))
 
 (defn pit-renderer
   [{:keys [pit]} {:keys [height width x y]}]
@@ -99,10 +98,10 @@
                 :y      y}])))
 
 (def arrow-adjustment
-  {:north [270 {:x 0.2 :y 1}]
-   :east [0 {:y 0.2}]
-   :south [90 {:x 0.8 :y 0}]
-   :west [180 {:y 0.8 :x 1}]})
+  {:north [270 {:x 0 :y 1}]
+   :east [0 {:y 0}]
+   :south [90 {:x 1 :y 0}]
+   :west [180 {:y 1 :x 1}]})
 
 (defn belt-renderer
   [{:keys [belt]} {:keys [height width x y]}]
@@ -110,21 +109,13 @@
     (fn []
       (let [[belt-direction express?] belt
             [rot position-adj] (arrow-adjustment belt-direction)]
-        [k/group
-         [k/rect {:x x :y y
-                  :height height :width width
-                  :fill-pattern-image belt-tubes-pattern-image
-                  :fill-pattern-rotation rot
-                  :fill-pattern-repeat "repeat-x"
-                  :fill-pattern-scale-x (/ width 560)
-                  :fill-pattern-scale-y (/ height 300)}]
-         [k/image {:height   (* 0.6 height)
-                   :width    width
-                   :image    (if express? belt-express-arrow-image belt-arrow-image)
-                   :x        (+ x (* width (:x position-adj 0)))
-                   :y        (+ y (* height (:y position-adj 0)))
-                   :rotation rot
-                   :fill     "#676767"}]]))))
+        [k/image {:height   height
+                  :width    width
+                  :image    (if express? belt-express-arrow-image belt-arrow-image)
+                  :x        (+ x (* width (:x position-adj 0)))
+                  :y        (+ y (* height (:y position-adj 0)))
+                  :rotation rot
+                  :fill     "#676767"}]))))
 
 (def wall-square-ratio 0.15)
 
@@ -143,7 +134,10 @@
         [k/group
          (for [dir walls]
            ^{:key (str (name dir) "-" (:y square-props))}
-           [k/rect (merge
+           [k/image (merge
+                      {:image wall-image}
+                      (wall-for-direction dir square-props))]
+           #_[k/rect (merge
                      (wall-for-direction dir square-props)
                      {:fill   "#676767"})])]))))
 
@@ -197,8 +191,7 @@
                         :image    laser-point-image
                         :x        (- (first laser-points) (* (or dx 0) width))
                         :y        (- (second laser-points) (* (or dy 0) height))
-                        :rotation rotation}]
-              ]))]))))
+                        :rotation rotation}]]))]))))
 
 (defn click-collector-renderer
   "Renderer purely just over a square to register a click"
@@ -263,9 +256,9 @@
                        repair-renderer
                        pit-renderer
                        belt-renderer
-                       walls-renderer
                        rotator-renderer
-                       docking-bay-renderer])
+                       docking-bay-renderer
+                       walls-renderer])
 
 (defn square-renderers
   [renderers square props]
