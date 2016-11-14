@@ -193,6 +193,10 @@
                #(update % :direction (get rotate-delta value)))
              state))
 
+(defmethod execute-player-register* :default
+  [state _]
+  state)
+
 (defn on-belt?
   [board position]
   (when position (:belt (square-at board position))))
@@ -220,14 +224,14 @@
   [{:keys [players board] :as state} express-only?]
   (let [new-player-pos (map (juxt :id (comp (partial apply-belt-movement board express-only?) :robot)) players)]
     (reduce (fn [state [player-id {:keys [position] :as robot}]]
-              (if (< 1 (count (filter #(= position (:position (second %))) new-player-pos)))
+              (if (and (some? position) (< 1 (count (filter #(= position (:position (second %))) new-player-pos))))
                 state
                 (setval (player-robot-path player-id) robot state)))
             state new-player-pos)))
 
 (defn priority
   [state [player-id register]]
-  (+ (:priority register)
+  (+ (:priority register 0)
      (/ 1 (get-in (player-by-id state player-id) [:robot :docking-bay]))))
 
 (defn on-rotator-gear?
@@ -451,12 +455,24 @@
                               (vec (concat registers (reverse (:locked-registers robot)))))]))
              player-ids->registers)))
 
+(def registers-per-turn 5)
+
+(defn apply-blank-registers
+  [player-ids->registers]
+  (zipmap (keys player-ids->registers)
+          (map (fn [registers]
+                 (-> registers
+                     (concat (repeat (- registers-per-turn (count registers)) nil))
+                     (vec)))
+               (vals player-ids->registers))))
+
 (defn execute-registers-for-turn
   [state turn]
   (reductions execute-register-number state
               (-> turn
                   (registers-for-turn)
                   (apply-locked-registers state)
+                  (apply-blank-registers)
                   (registers-by-execution-order))))
 
 (defn heal-powered-down-robots
@@ -688,7 +704,8 @@
             powering-down-next-turn? (update-in [:powering-down] (comp set conj) player-id)))
   (player-invalid-response [turn player-id] (update-in turn [:invalid] (comp set conj) player-id))
   (player-timedout [turn player-id] (update-in turn [:timed-out] (comp set conj) player-id))
-  (registers-for-turn [turn] (:registers turn)) ;; => map from player -> []
+  (registers-for-turn [turn] (merge (into {} (map (juxt :id (constantly [])) players))
+                                    (:registers turn)))     ;; => map from player -> []
   (registers-required-for-turn [turn] (registers-for-players turn)) ;; => map from player -> number
   (players-with-invalid-response [turn] (:invalid turn))
   (players-powering-down-next-turn [turn] (map (partial player-by-id turn) (:powering-down turn))))

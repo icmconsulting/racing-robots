@@ -1,8 +1,14 @@
 # TODO
 
 ## Game viewer / Game
-- Incrementally show result after each register
-- Replay last
+- Bots that don't submit all the required number of registers
+    - get penalised - illegal response
+    - need to send number of expected registers in request
+- Make JSON request more friendly 
+    - camelcase keys
+    - ?
+
+- Replay last (i.e. with same cards dealt)
 
 - Bots destroyed -> explosion sprite
 

@@ -218,17 +218,18 @@
 (deftest conveyer-belt-interaction
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"} {:name "player 3"}] board-with-belts)
         player1-id (get-in base-game [:state :players 0 :id])
+        player2-id (get-in base-game [:state :players 1 :id])
         player3-id (get-in base-game [:state :players 2 :id])]
 
     (testing "Robot on a non express belt after a turn is moved by 1 square in the direction of the belt"
-      (let [base-single-player-game (complete-turn base-game (t {player1-id [{:type :move :value 2 :priority 290}]}))]
-        (is (= [1 2] (player-position base-single-player-game 1)))))
+      (let [base-single-player-games (after-each-register-for-turn base-game (t {player1-id [{:type :move :value 2 :priority 290}]}))]
+        (is (= [1 2] (player-position (second base-single-player-games) 1)))))
 
     (testing "Robot on an express belt after a turn is moved by 2 squares in the direction of the belt"
-      (let [base-single-player-game (-> (assoc-in base-game [:state :players 0 :robot :direction] :east)
+      (let [base-single-player-games (-> (assoc-in base-game [:state :players 0 :robot :direction] :east)
                                         (assoc-in [:state :players 0 :robot :position] [0 0])
-                                        (complete-turn (t {player1-id [{:type :move :value 1 :priority 290}]})))]
-        (is (= [1 2] (player-position base-single-player-game 1)))))
+                                        (after-each-register-for-turn (t {player1-id [{:type :move :value 1 :priority 290}]})))]
+        (is (= [1 2] (player-position (second base-single-player-games) 1)))))
 
     (testing "Robots being moved into a conflicting spot will not be moved by the belt"
       (let [two-player-game (complete-turn base-game (t {player1-id [{:type :move :value 1 :priority 290}]
@@ -252,18 +253,49 @@
         (is (= :south (player-direction single-player-game 1)))))
 
     (testing "Robots are moved around corner on corner belts, and rotated if required"
-      (let [single-player-game (-> base-game
+      (let [single-player-games (-> base-game
                                    (assoc-in [:state :players 0 :robot :direction] :west)
                                    (assoc-in [:state :players 0 :robot :position] [3 1])
-                                   (complete-turn (t {player1-id [{:type :move :value 1 :priority 290}]})))]
-        (is (= [1 2] (player-position single-player-game 1)))
-        (is (= :east (player-direction single-player-game 1)))))
+                                   (after-each-register-for-turn (t {player1-id [{:type :move :value 1 :priority 290}]})))]
+        (is (= [1 2] (player-position (second single-player-games) 1)))
+        (is (= :east (player-direction (second single-player-games) 1)))))
 
     (testing "Robots are destroyed if a belt moves them off the board"
       (let [single-player-game (-> base-game
                                    (assoc-in [:state :players 0 :robot :position] [3 4])
                                    (complete-turn (t {player1-id [{:type :move :value 2 :priority 290}]})))]
-        (is (= :destroyed (player-state single-player-game 1)))))))
+        (is (= :destroyed (player-state single-player-game 1)))
+        (is (nil? (player-position single-player-game 1)))))
+
+    (testing "Robots that are powered down can still be thrown off the board by a belt"
+      (let [base-single-player-game (-> base-game
+                                        (assoc-in [:state :players 0 :robot :powered-down?] true)
+                                        (assoc-in [:state :players 0 :robot :position] [0 2])
+                                        (complete-turn (t {player1-id []
+                                                           player3-id [{:type :move :value 2 :priority 290}]})))]
+        (is (nil? (player-position base-single-player-game 1)))
+        (is (= :destroyed (player-state base-single-player-game 1)))))
+
+    (testing "Robots that are powered down can still be killed by being pushed off the board"
+      (let [base-single-player-game (-> base-game
+                                        (assoc-in [:state :players 0 :robot :powered-down?] true)
+                                        (assoc-in [:state :players 0 :robot :position] [3 2])
+                                        (complete-turn (t {player1-id []
+                                                           player3-id [{:type :move :value 2 :priority 290}]})))]
+        (is (= :destroyed (player-state base-single-player-game 1)))
+        (is (nil? (player-position base-single-player-game 1)))))
+
+    (testing "All players are powered down, belts still take effect"
+      (let [base-single-player-game (-> base-game
+                                        (assoc-in [:state :players 0 :robot :powered-down?] true)
+                                        (assoc-in [:state :players 0 :robot :position] [0 2])
+                                        (assoc-in [:state :players 1 :robot :powered-down?] true)
+                                        (assoc-in [:state :players 2 :robot :powered-down?] true)
+                                        (complete-turn (t {player1-id []
+                                                           player2-id []
+                                                           player3-id []})))]
+        (is (= :destroyed (player-state base-single-player-game 1)))
+        (is (nil? (player-position base-single-player-game 1)))))))
 
 (def board-with-rotators
   (->RRSeqBoard
@@ -278,15 +310,15 @@
   (let [base-game (new-game [{:name "player 1"} {:name "player 2"}] board-with-rotators)
         player1-id (get-in base-game [:state :players 0 :id])]
     (testing "Robot landing on a rotate-left square is rotated left"
-      (let [base-single-player-game (complete-turn base-game (t {player1-id [{:type :move :value 2 :priority 290}
-                                                                             {:type :move :value 2 :priority 290}]}))]
-        (is (= :west (player-direction base-single-player-game 1)))))
+      (let [base-single-player-games (after-each-register-for-turn base-game (t {player1-id [{:type :move :value 2 :priority 290}
+                                                                                             {:type :move :value 2 :priority 290}]}))]
+        (is (= :west (player-direction (second (rest base-single-player-games)) 1)))))
 
     (testing "Robot landing on a rotator right square is rotated right"
-      (let [base-single-player-game (complete-turn base-game (t {player1-id [{:type :move :value 2 :priority 290}
-                                                                             {:type :rotate :value :right :priority 100}
-                                                                             {:type :move :value 3 :priority 290}]}))]
-        (is (= :south (player-direction base-single-player-game 1)))))
+      (let [base-single-player-games (after-each-register-for-turn base-game (t {player1-id [{:type :move :value 2 :priority 290}
+                                                                                             {:type :rotate :value :right :priority 100}
+                                                                                             {:type :move :value 3 :priority 290}]}))]
+        (is (= :south (player-direction (nth base-single-player-games 3) 1)))))
 
     (testing "Robot landing on a uturn rotator rotated 180 degrees"
       (let [base-single-player-game (->
@@ -312,11 +344,11 @@
         player1-id (get-in base-game [:state :players 0 :id])
         player2-id (get-in base-game [:state :players 1 :id])]
     (testing "Robot landing on a single laser square gains 1 damage"
-      (let [base-game (-> base-game
+      (let [base-games (-> base-game
                           (assoc-in [:state :players 0 :robot :direction] :west)
                           (assoc-in [:state :players 0 :robot :position] [2 0])
-                          (complete-turn (t {player1-id [{:type :move :value 2 :priority 100}]})))]
-        (is (= 1 (player-damage base-game 1)))))
+                          (after-each-register-for-turn (t {player1-id [{:type :move :value 2 :priority 100}]})))]
+        (is (= 1 (player-damage (second base-games) 1)))))
 
     (testing "Robot hiding behind a wall does not gain damage from a laser"
       (let [base-game (-> base-game
@@ -325,23 +357,23 @@
         (is (zero? (player-damage base-game 1)))))
 
     (testing "Lasers don't pass through robots - only first one takes the damage"
-      (let [base-game (-> base-game
-                          (assoc-in [:state :players 0 :robot :direction] :west)
-                          (assoc-in [:state :players 0 :robot :position] [2 0])
-                          (assoc-in [:state :players 1 :robot :direction] :west)
-                          (assoc-in [:state :players 1 :robot :position] [2 1])
-                          (complete-turn (t {player1-id [{:type :move :value 2 :priority 100}]
-                                             player2-id [{:type :move :value 2 :priority 100}]})))]
-        (is (= 1 (player-damage base-game 1)))
-        (is (zero? (player-damage base-game 2)))))
+      (let [base-games (-> base-game
+                           (assoc-in [:state :players 0 :robot :direction] :west)
+                           (assoc-in [:state :players 0 :robot :position] [2 0])
+                           (assoc-in [:state :players 1 :robot :direction] :west)
+                           (assoc-in [:state :players 1 :robot :position] [2 1])
+                           (after-each-register-for-turn (t {player1-id [{:type :move :value 2 :priority 100}]
+                                                             player2-id [{:type :move :value 2 :priority 100}]})))]
+        (is (= 1 (player-damage (second base-games) 1)))
+        (is (zero? (player-damage (second base-games) 2)))))
 
     (testing "Robot landing on a square with 3 lasers square gains 3 damage"
-      (let [base-game (-> base-game
+      (let [base-games (-> base-game
                           (assoc-in [:state :players 0 :robot :direction] :north)
                           (assoc-in [:state :players 0 :robot :position] [3 4])
-                          (complete-turn (t {player1-id [{:type :move :value 2 :priority 100}]})))]
-        (is (= [3 2] (player-position base-game 1)))
-        (is (= 3 (player-damage base-game 1)))))
+                          (after-each-register-for-turn (t {player1-id [{:type :move :value 2 :priority 100}]})))]
+        (is (= [3 2] (player-position (second base-games) 1)))
+        (is (= 3 (player-damage (second base-games) 1)))))
 
     (testing "Robot landing on a belt in path of a laser, where belt takes him out of path of laser, incurs no damage"
       (let [base-game (-> base-game
@@ -356,12 +388,12 @@
         player1-id (get-in base-game [:state :players 0 :id])
         player2-id (get-in base-game [:state :players 1 :id])]
     (testing "Robot in immediate line of sight of other robot single damage point"
-      (let [base-game (complete-turn base-game (t {player1-id [{:type :move :value 1 :priority 100}
-                                                               {:type :rotate :value :right :priority 100}]
-                                                   player2-id [{:type :move :value 1 :priority 100}
-                                                               {:type :rotate :value :right :priority 100}]}))]
-        (is (zero? (player-damage base-game 1)))
-        (is (= 1 (player-damage base-game 2)))))
+      (let [base-games (after-each-register-for-turn base-game (t {player1-id [{:type :move :value 1 :priority 100}
+                                                                              {:type :rotate :value :right :priority 100}]
+                                                                  player2-id [{:type :move :value 1 :priority 100}
+                                                                              {:type :rotate :value :right :priority 100}]}))]
+        (is (zero? (player-damage (nth base-games 2) 1)))
+        (is (= 1 (player-damage (nth base-games 2) 2)))))
 
     (testing "Robot hiding behind a wall does not gain damage from a robot laser"
       (let [base-game (-> base-game
