@@ -7,10 +7,10 @@
 - Make JSON request more friendly 
     - camelcase keys
     - ?
+- Replay game on game over screen
+- Restart game on game control pad (under abandon game)
 
 - Replay last (i.e. with same cards dealt)
-
-- Bots destroyed -> explosion sprite
 
 ## Boards
 - Add new boards

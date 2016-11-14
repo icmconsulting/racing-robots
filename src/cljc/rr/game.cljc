@@ -480,7 +480,8 @@
   (transform [:state :players ALL (if-path [:robot :powered-down? true?] [:robot])]
              (comp
                #(add-robot-event % :damage/repair-powered-down)
-               #(assoc % :damage (min 0 (:damage %)))) game))
+               #(assoc % :locked-registers []               ;; Need to be cleared here, as they won't be cleared during locked-register check
+                         :damage (min 0 (:damage %)))) game))
 
 (def invalid-response-damage-penalty 5)
 
@@ -618,8 +619,8 @@
 
 (defn calculate-locked-registers
   [locked-registers player-registers-for-turn num-registers-for-next-turn]
-  (take (- 5 num-registers-for-next-turn)
-        (concat locked-registers (reverse player-registers-for-turn))))
+  (vec (take (- 5 num-registers-for-next-turn)
+             (concat locked-registers (reverse player-registers-for-turn)))))
 
 (defn lock-robot-registers
   [num-registers-for-this-turn registers-for-turn robot]
@@ -627,16 +628,14 @@
         new-locked-registers (calculate-locked-registers (:locked-registers robot)
                                                          registers-for-turn
                                                          num-registers-for-this-turn)]
-    (cond-> robot
-            true (assoc :locked-registers new-locked-registers)
+    (cond-> (assoc robot :locked-registers new-locked-registers)
             (not= old-locked-registers new-locked-registers) (add-robot-event :registers/locked-register-change old-locked-registers))))
 
 (defn lock-player-registers
   [state turn]
   (let [damaged-players (->> (:players state)
                              (filter player-still-active?)
-                             (map #(assoc % :num-registers (num-registers-for-this-turn %)))
-                             (filter #(not= 5 (:num-registers %))))]
+                             (map #(assoc % :num-registers (num-registers-for-this-turn %))))]
     (reduce (fn [state {:keys [id] :as damaged-player}]
               (let [registers (-> turn (registers-for-turn) (get id))]
                 (transform (player-robot-path id)

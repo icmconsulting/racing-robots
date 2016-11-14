@@ -580,7 +580,7 @@
                           {:class (when (= idx active-register) "active")}
                           [register-image register]])
                        (concat player-registers-this-turn
-                               (map #(assoc % :locked? true) (:locked-registers robot))))
+                               (map #(assoc % :locked? true) (reverse (:locked-registers robot)))))
           (when powering-down-next? [:li.powered-down [power-down-image-view]])])))])
 
 
