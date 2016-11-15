@@ -239,6 +239,11 @@
 
      [bs/button-group {:vertical true}
       [bs/button {:bs-size  "small"
+                  :bs-style :warning
+                  :on-click #(dispatch! [:rematch!])
+                  :disabled (or waiting? autoplaying?)}
+       [bs/glyph {:glyph "repeat"}] "Restart game"]
+      [bs/button {:bs-size  "small"
                   :bs-style :danger
                   :on-click #(dispatch! [:abandon-game!])
                   :disabled (or waiting? autoplaying?)}

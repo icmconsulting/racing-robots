@@ -1,7 +1,6 @@
 # TODO
 
 ## Game viewer / Game
-- Restart game on game control pad (under abandon game)
 - Fix layout on New Game panel
 
 - Replay last (i.e. with same cards dealt)
