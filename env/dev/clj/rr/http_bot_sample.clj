@@ -19,10 +19,10 @@
 
 (defroutes bot-routes
            (POST "/game/:game-id" {:keys [body]}
-             (println "My ID:" (:player-id body))
+             (println "My ID:" (:playerId body))
              (resp/response {:response :ready
                              :profile {:name "Tester McGee"
-                                       :robot-name "Testbot 3000"
+                                       :robotName "Testbot 3000"
                                        :avatar (avatar)}}))
 
            (DELETE "/game/:game-id" {:keys [body]}
@@ -34,16 +34,16 @@
              (println (:game-id params))
              (println (:turn-number params))
              (println (:cards body))
-             (println (:num-registers body))
+             (println (:numRegisters body))
              (let [cards (:cards body)]
-               (resp/response {:registers     (->> cards shuffle (take (:num-registers body)))
-                               :powering-down false})))
+               (resp/response {:registers     (->> cards shuffle (take (:numRegisters body)))
+                               :poweringDown false})))
 
            (PUT "/game/:game-id/:turn-number" {:keys [params body]}
                 (println "COMPLETE TURN!")
                 (println (:turn-number params))
-                (println (:other-players body))
-                (println (:available-responses body))
+                (println (:otherPlayers body))
+                (println (:availableResponses body))
                 (resp/response {:response :no-action})))
 
 (def app

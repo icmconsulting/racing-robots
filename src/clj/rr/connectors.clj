@@ -80,13 +80,21 @@
   (when-let [type (get-in resp [:headers :content-type])]
     (not (empty? (re-find #"^application/(.+\+)?json" type)))))
 
+(defn write-json-request
+  [data]
+  (json/write-str data :key-fn (comp name ->camelCase)))
+
+(defn read-json-response
+  [data]
+  (json/read-str data :key-fn (comp keyword ->kebab-case)))
+
 (defn do-http-request
   [method url game-data response-validator]
   (let [{:keys [error body status] :as resp} @(http/request {:url     url
                                                              :method  method
-                                                             :body    (json/write-str game-data)
+                                                             :body    (write-json-request game-data)
                                                              :headers {"Content-Type" "application/json"}})
-        body (when (and (json-response? resp) body) (json/read-str body :key-fn keyword))
+        body (when (and (json-response? resp) body) (read-json-response body))
         validation-result (when body (response-validator body))]
     (cond
       error (do
@@ -186,14 +194,14 @@
   [aws-creds function-name message-type data validator]
   (let [message {:message-type message-type
                  :data         data}
-        payload (json/write-str message)]
+        payload (write-json-request message)]
     (try
       (let [response (some->
                        (lambda/invoke aws-creds :function-name function-name :payload payload)
                        (:payload)
                        (.array)
                        (String. "UTF-8")
-                       (json/read-str :key-fn keyword))
+                       (read-json-response))
             validation-result (validator response)]
         (if validation-result
           (do
