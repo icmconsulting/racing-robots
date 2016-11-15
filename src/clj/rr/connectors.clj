@@ -127,7 +127,13 @@
                  :priority {:type "integer"}}
    :required [:registers :powering-down]})
 
-(def turn-validator (validator/validator turn-schema))
+(defn turn-validator
+  [player turn-data]
+  (or
+    ((validator/validator turn-schema) turn-data)
+    (when-not (= (count (:registers turn-data)) (game/num-registers-for-this-turn player))
+      [{:message (format "Invalid number of registers received. Expected %s, received %s."
+                         (game/num-registers-for-this-turn player) (count (:registers turn-data)))}])))
 
 (defn adapt-register-response
   [register]
@@ -142,7 +148,7 @@
 (defn http-turn [port game player turn]
   (let [game-data (turn-game-data-for-bot game player turn)
         url (local-address port "game" (game/id game) (:turn-number turn))
-        turn-response (do-http-request :post url game-data turn-validator)]
+        turn-response (do-http-request :post url game-data (partial turn-validator player))]
     (if (keyword? turn-response)
       turn-response
       (adapt-turn-response turn-response))))
@@ -212,7 +218,7 @@
   (let [game-data (assoc (turn-game-data-for-bot game player turn)
                     :game-id (game/id game)
                     :turn-number (:turn-number turn))
-        response (invoke-lambda-function aws-creds function-name "turn" game-data turn-validator)]
+        response (invoke-lambda-function aws-creds function-name "turn" game-data (partial turn-validator player))]
     (if (keyword? response)
       response
       (adapt-turn-response response))))
