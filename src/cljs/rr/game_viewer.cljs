@@ -324,12 +324,14 @@
   [game-state _]
   (let [players (map apply-player-bot (get-in game-state [:new-game :players]) (shuffle all-bot-images))
         board (kw->board (get-in game-state [:new-game :board]))
-        game-ch (runner/start-new-game {:players players :board (:board board)})]
+        game-ch (runner/start-new-game {:players players :board (:board board)})
+        game-params (select-keys (:new-game game-state) [:players :board])]
 
     (go (dispatch! (vec (concat [:game-started!] (async/<! game-ch)))))
 
     {:state-stack []
-     :new-game (select-keys (:new-game game-state) [:players :board])   ;; for trying again if something goes wrong
+     :new-game game-params   ;; for trying again if something goes wrong
+     :rematch-game game-params
      :autoplay? false
      :waiting-for-ready? true}))
 
@@ -501,6 +503,11 @@
          [:td (count (filter (comp #{:belt/moved-by-belt} :type) (:events robot))) " sq"]
          [:td (count (filter (comp #{:power-down/start} :type) (:events robot))) " times"]]))]])
 
+(defmethod dispatch-event-type :rematch!
+  [game-state _]
+  (dispatch-event-type (assoc game-state :new-game (:rematch-game game-state))
+                       [:start-game!]))
+
 (defn game-over-root
   []
   (let [[_ players] (game/victory-status (:game @game-state))
@@ -514,7 +521,8 @@
                (tie-game-over winners))
              [[player-results-table players]
               [bs/row [bs/col {:xs 12 :class-name "text-center"}
-                       [bs/button {:on-click #(dispatch! [:abandon-game!]) :bs-style :primary} "go again!"]]]]))]))
+                       [bs/button {:on-click #(dispatch! [:abandon-game!]) :bs-style :primary} "start new game"]
+                       [bs/button {:on-click #(dispatch! [:rematch!]) :bs-style :success} "demand rematch!"]]]]))]))
 
 (defn game-waiting-for-ready?
   [game-state]
