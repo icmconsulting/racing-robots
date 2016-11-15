@@ -1,8 +1,6 @@
 # TODO
 
 ## Game viewer / Game
-- Fix layout on New Game panel
-
 - Replay last (i.e. with same cards dealt)
 
 ## Boards

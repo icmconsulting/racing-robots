@@ -361,28 +361,28 @@
   [bs/form-group
    [bs/control-label "Port number"]
    [bs/form-control {:type :number
-                     :placeholder "Localhost bound port number of your RR AI Bot application"
+                     :placeholder "Localhost bound port"
                      :min 1
                      :max 65536
                      :value (:port (new-game-player-by-number @game-state player-num) "")
                      :on-change #(dispatch! [:player-connection-port-number player-num (-> % .-target .-value)])}]
-   [bs/help-block "Obviously, should be between 0 and 65536"]])
+   [bs/help-block "between 0 and 65536"]])
 
 (defn lambda-function-name-input
   [player-num]
   [bs/form-group
-   [bs/control-label "Lambda function name"]
+   [bs/control-label "function name"]
    [bs/form-control {:type :text
-                     :placeholder "Lambda function name"
+                     :placeholder "function name"
                      :value (:lambda-function-name (new-game-player-by-number @game-state player-num) "")
                      :on-change #(dispatch! [:player-connection-function-name player-num (-> % .-target .-value)])}]
-   [bs/help-block "The name you gave to your AWS Lambda function when you set it up"]])
+   [bs/help-block "NOT the fully qualified ARN - just the function name"]])
 
 (defn player-type-selection
   [player-num]
-  [:div
+  [:div.player-selection
    [bs/form-group
-    [bs/control-label (str "player " (inc player-num) " type")]
+    [bs/control-label (str "player " (inc player-num))]
     [bs/form-control {:component-class "select"
                       :placeholder     "select player type"
                       :default-value   (name (:player-type (new-game-player-by-number @game-state player-num) ""))
@@ -394,14 +394,19 @@
         ^{:key bot-key}
         [:option {:value bot-key} (name bot-key)])]]]
    (let [new-game-player (new-game-player-by-number @game-state player-num)]
-     (when (= (:player-type new-game-player) :player)
+     (cond
+       (= (:player-type new-game-player) :player)
        [bs/well
         [bs/form-group
          [bs/control-label "Connection type"]
          [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :http])} "HTTP/REST"]
          (when (= :http (:connection-type new-game-player)) [port-number-input player-num])
          [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :lambda])} "AWS Lambda"]]
-          (when (= :lambda (:connection-type new-game-player)) [lambda-function-name-input player-num])]))])
+          (when (= :lambda (:connection-type new-game-player)) [lambda-function-name-input player-num])]
+
+       ((set (keys bots/local-bots)) (:player-type new-game-player))
+       (let [bot ((bots/local-bots (:player-type new-game-player)))]
+         [bs/thumbnail {:src (get-in bot [:profile :avatar]) :alt (name (:player-type new-game-player))}])))])
 
 (defn new-game-ready-to-start?
   [{:keys [new-game]}]
@@ -417,7 +422,7 @@
 
 (defn board-selection
   []
-  [bs/form-group
+  [bs/form-group {:class "board-selection"}
    [bs/control-label "board"]
    [bs/form-control {:component-class "select"
                      :placeholder     "select board"
@@ -430,7 +435,7 @@
 
 (defn start-new-game-root
   []
-  [bs/panel {:header "select robotic parameters"}
+  [bs/panel {:class "new-game-root" :header "select robotic parameters"}
    [:form
     (for [player-num (range 0 4)]
       ^{:key player-num}

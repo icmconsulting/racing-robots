@@ -42,3 +42,4 @@
 (def row (adapt-react-class js/ReactBootstrap.Row))
 (def col (adapt-react-class js/ReactBootstrap.Col))
 
+(def thumbnail (adapt-react-class js/ReactBootstrap.Thumbnail))

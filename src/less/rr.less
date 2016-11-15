@@ -404,9 +404,28 @@ button, input, select {
 
       }
 
+      .new-game-root {
+
+        form {
+         display: flex;
+          flex-direction: row;
+          flex-wrap: wrap;
+          justify-content: center;
+
+          > div {
+            margin: 0.5em;
+          }
+
+          .player-selection {
+            width: 22%;
+          }
+
+          .board-selection {
+            width: 100%;
+          }
+        }
+      }
     }
-
-
 
     .board-browser-root {
       .three-column-flex();
