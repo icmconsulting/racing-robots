@@ -5,6 +5,7 @@
             [clojure.data.json :as json]
             [cognitect.transit :as transit]
             [org.httpkit.client :as http]
+            [camel-snake-kebab.core :refer :all]
             [scjsv.core :as validator]
             [amazonica.aws.lambda :as lambda]
             [clojure.core.async :as async :refer [go go-loop <! >!]]
@@ -39,7 +40,8 @@
 (defn turn-game-data-for-bot
   [game player {:keys [dealt]}]
   (merge (new-game-data-for-bot game player)
-         {:cards dealt}))
+         {:cards dealt
+          :num-registers (game/num-registers-for-this-turn player)}))
 
 (defn completed-turn-game-data-for-bot
   [game player turn]

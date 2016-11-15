@@ -34,6 +34,7 @@
              (println (:game-id params))
              (println (:turn-number params))
              (println (:cards body))
+             (println (:num-registers body))
              (let [cards (:cards body)]
                (resp/response {:registers (->> cards shuffle (take 5))
                                :powering-down false})))
