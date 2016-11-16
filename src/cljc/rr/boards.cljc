@@ -52,6 +52,26 @@
       [[blank blank (walls :south) blank (walls :south) blank blank (walls :south) blank (walls :south) (flag 2) blank]]
       easy-docking-bay-board)))
 
+(def chop-shop-challenge
+  (game/->RRSeqBoard
+    (concat
+      [[blank blank (walls :north) blank (walls :north) (belt :south) (belt :north) (walls :north) blank (walls :north) blank (rep)]]
+      [(concat [(belt :west) (-> (walls :south :north) (game/with-lasers :south 3))] (repeat 4 (belt :west)) [(belt :north)] (repeat 3 blank) [(pit) blank])]
+      [[(walls :west) blank (rep) blank (walls :west) (rot :left) (rot :right) blank blank (laser :east 1) blank (walls :east)]]
+      [(concat (repeat 3 (belt :east)) [(walls :north)] (repeat 6 (exp-belt :east)) [(-> (walls :north) (game/with-belt :east true)) (exp-belt :east)])]
+      [(concat [(walls :west) blank blank (rot :right)] (repeat 5 blank) [(exp-belt :north) blank (walls :east)])]
+      [[blank blank (pit) (rot :left) blank blank (rep) (belt :south) (walls :north :west) (exp-belt :north) (-> (laser :south 1) (game/with-belt :west true)) (exp-belt :west)]]
+      [(concat [blank blank blank (laser :south 2) (belt :west) (belt :west) (-> (belt :west) (game/with-walls :north)) (rot :left)] (repeat 4 (belt :east)))]
+      [(concat [(walls :west) (laser :north 1)] (repeat 3 blank) [(pit) (belt :north)] (repeat 4 blank) [(flag 4)])]
+      [(concat (repeat 3 (belt :west)) [(rot :left) blank (laser :west 1) (rot :right) (walls :east) blank] (repeat 3 (belt :west)))]
+      [[(walls :west) (walls :south) (pit) (belt :north) (flag 1) blank (belt :north) (rep) (pit) (belt :west) (belt :west) (walls :east)]]
+      [[blank (flag 3) blank (belt :north) blank (walls :east) (belt :north) blank blank blank (belt :north) blank]]
+      [[(rep) blank (walls :south) (belt :north) (walls :south) blank (belt :north) (walls :south) blank (flag 2) (belt :north) blank]]
+      [(concat (repeat 12 blank))]
+      [(concat (repeat 12 blank))]
+      [[blank (walls :west) (walls :east) (dock 3) blank (-> (dock 1) (game/with-walls :west)) (-> (dock 2) (game/with-walls :east)) (walls :east) (dock 4) (walls :east) blank (walls :west)]]
+      [[blank blank (walls :south) blank (walls :south) blank blank (walls :south) blank (walls :south) blank blank]])))
+
 
 (def all-available-boards
   {:risky-exchange {:board risky-exchange
@@ -60,6 +80,9 @@
    :dizzy-dash {:board dizzy-dash
                 :key :dizzy-dash
                 :description "Whoops, was that the flag over there?"}
+   :chop-shop-challenge {:board chop-shop-challenge
+                         :key :chop-shop-challenge
+                         :description "Great risk, great reward"}
    })
 
 (defn board-from-board

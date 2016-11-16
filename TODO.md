@@ -1,8 +1,5 @@
 # TODO
 
-## Game viewer / Game
-- Replay last (i.e. with same cards dealt)
-
 ## Boards
 - Add new boards
 
