@@ -37,8 +37,11 @@
            (GET "/newgame" [] (loading-page))
            (GET "/boards" [] (loading-page))
            (GET "/boards/*" [] (loading-page))
+
            (context "/bot" [] bot-routes)
+
            (GET "/cards" [] (cards-page))
+
            (resources "/")
            (not-found "Not Found"))
 

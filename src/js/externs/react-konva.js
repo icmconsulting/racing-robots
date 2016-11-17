@@ -1,0 +1,23 @@
+var ReactKonva = {
+  Stage: function() {},
+  Group : function() {},
+  Layer: function() {},
+  Label: function() {},
+  Rect: function() {},
+  Circle: function() {},
+  Ellipse: function() {},
+  Wedge: function() {},
+  Line: function() {},
+  Sprite: function() {},
+  Image: function() {},
+  Text: function() {},
+  TextPath: function() {},
+  Star: function() {},
+  Ring: function() {},
+  Arc: function() {},
+  Tag: function() {},
+  Path: function() {},
+  RegularPolygon: function() {},
+  Arrow: function() {},
+  Shape: function() {}
+};

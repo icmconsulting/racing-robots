@@ -401,6 +401,11 @@
   (let [archive-squares (squares-matching (:board state) (some-fn :flag :repair))]
     (reduce robot-places-archive-marker state archive-squares)))
 
+(defn player-final-score
+  [player]
+  ;;TODO
+  )
+
 (defn calculate-victory-status
   [state]
   (let [{:keys [board players]} state

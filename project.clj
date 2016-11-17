@@ -20,13 +20,13 @@
                  [compojure "1.5.1"]
                  [hiccup "1.0.5"]
                  [http-kit "2.2.0"]
-                 [amazonica "0.3.77"]
+                 [amazonica "0.3.77" :exclusions [com.google.guava/guava]]
                  [cljs-ajax "0.5.8"]
                  [org.clojure/core.async "0.2.395"]
                  [base64-clj "0.1.1"]
                  [yogthos/config "0.8"]
                  [com.rpl/specter "0.13.1-SNAPSHOT"]
-                 [org.clojure/clojurescript "1.9.229" :scope "provided"]
+                 [org.clojure/clojurescript "1.9.293" :scope "provided"]
                  [secretary "1.2.3"]
                  [venantius/accountant "0.1.7"
                   :exclusions [org.clojure/tools.reader]]
@@ -72,6 +72,7 @@
                             :output-dir    "target/uberjar"
                             :optimizations :advanced
                             :pretty-print  false
+                            :externs ["src/js/externs/react.js" "src/js/externs/react-konva.js"]
                             :foreign-libs  [{:file     "src/js/konva/react-konva.bundle.js"
                                              :provides ["cljsjs.react.dom"
                                                         "cljsjs.react.dom"
