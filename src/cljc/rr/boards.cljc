@@ -72,17 +72,36 @@
       [[blank (walls :west) (walls :east) (dock 3) blank (-> (dock 1) (game/with-walls :west)) (-> (dock 2) (game/with-walls :east)) (walls :east) (dock 4) (walls :east) blank (walls :west)]]
       [[blank blank (walls :south) blank (walls :south) blank blank (walls :south) blank (walls :south) blank blank]])))
 
+(def proving-grounds
+  (game/->RRSeqBoard
+    (concat
+      [(concat (repeat 3 blank) [(flag 1)] (repeat 4 blank))]
+      [(concat (repeat 3 blank) [(flag 2)] (repeat 4 blank))]
+      [(concat (repeat 3 blank) [(flag 3)] (repeat 4 blank))]
+      [(repeat 8 blank)]
+      [[(rep) blank (walls :south) blank (walls :south) blank (walls :south) blank]]
+      [(repeat 8 blank)]
+      [(repeat 8 blank)]
+      [[(dock 3) blank (-> (dock 1) (game/with-walls :west)) blank blank (-> (dock 2) (game/with-walls :east)) blank (dock 4)]])))
+
 
 (def all-available-boards
-  {:risky-exchange {:board risky-exchange
-                    :key :risky-exchange
-                    :description "An easy course to start on, but don’t fall off the edge!"}
-   :dizzy-dash {:board dizzy-dash
-                :key :dizzy-dash
-                :description "Whoops, was that the flag over there?"}
-   :chop-shop-challenge {:board chop-shop-challenge
-                         :key :chop-shop-challenge
+  {:risky-exchange      {:board       risky-exchange
+                         :key         :risky-exchange
+                         :description "An easy course to start on, but don’t fall off the edge!"}
+   :dizzy-dash          {:board       dizzy-dash
+                         :key         :dizzy-dash
+                         :description "Whoops, was that the flag over there?"}
+   :chop-shop-challenge {:board       chop-shop-challenge
+                         :key         :chop-shop-challenge
                          :description "Great risk, great reward"}
+
+   ;; test harness only boards
+   :proving-grounds     {:board       proving-grounds
+                         :key         :proving-grounds
+                         :description "For testing basic mechanics of your bot. Won't be used in the tournament"
+                         :test-only?  true}
+
    })
 
 (defn board-from-board
