@@ -401,10 +401,22 @@
   (let [archive-squares (squares-matching (:board state) (some-fn :flag :repair))]
     (reduce robot-places-archive-marker state archive-squares)))
 
-(defn player-final-score
-  [player])
-  ;;TODO
+(defn num-player-turns
+  [player]
+  (reduce max (map :turn (get-in player [:robot :events]))))
 
+(defn num-times-powered-down
+  [player]
+  (count (filter (comp #{:power-down/start} :type) (get-in player [:robot :events]))))
+
+(defn player-score
+  [{:keys [robot] :as player}]
+  (println (* (count (:flags robot)) 100) (* (:lives robot) 25) (num-player-turns player) (num-times-powered-down player))
+  (+
+    (* (count (:flags robot)) 100)
+    (* (:lives robot) 25)
+    (num-player-turns player)
+    (- (num-times-powered-down player))))
 
 (defn calculate-victory-status
   [state]

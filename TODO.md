@@ -9,3 +9,6 @@
     - Lambda function name
     - Docker image tag
 - Start new tournament - randomly generate draw
+
+# Game viewer
+- Limit player and robot names to avoid messing up the score sheet

@@ -483,6 +483,7 @@
       [:th]
       [:th "Player team"]
       [:th "Robot name"]
+      [:th "Tournament score"]
       [:th "End status"]
       [:th "Flags"]
       [:th "Turns"]
@@ -503,9 +504,10 @@
          [:td (when winner? [bs/glyph {:glyph "star"}])]
          [:td (:name player) " (" (player-short-id player) ")"]
          [:td (:robot-name player)]
+         [:td (game/player-score player)]
          [:td (if dead? "Dead" "active")]
          [:td (count (:flags robot))]
-         [:td (reduce max (map :turn (:events robot)))]
+         [:td (game/num-player-turns player)]
          [:td (count (filter (comp #{:belt/moved-by-belt :move/north :move/east :move/south :move/west} :type)
                              (:events robot)))]
          [:td (if dead? 5 (- (:lives game/blank-robot) (:lives robot)))]
@@ -513,7 +515,7 @@
          [:td (count (filter (comp #{:destroyed/fell-off-board :destroyed/belt-pushed-off-board} :type) (:events robot))) " times"]
          [:td (count (filter (comp #{:destroyed/fell-into-pit} :type) (:events robot))) " times"]
          [:td (count (filter (comp #{:belt/moved-by-belt} :type) (:events robot))) " sq"]
-         [:td (count (filter (comp #{:power-down/start} :type) (:events robot))) " times"]]))]])
+         [:td (game/num-times-powered-down player) " times"]]))]])
 
 (defmethod dispatch-event-type :rematch!
   [game-state _]
