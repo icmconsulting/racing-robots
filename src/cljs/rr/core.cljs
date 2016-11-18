@@ -3,10 +3,19 @@
               [reagent.session :as session]
               [secretary.core :as secretary :include-macros true]
               [accountant.core :as accountant]
+              [taoensso.timbre :refer [info warn]]
               [rr.bs :as bs]
               [rr.logger :as logger]
               [rr.game-viewer :as game-viewer]
               [rr.board-browser :as board-browser]))
+
+(def mode
+  (or (some-> (.getElementsByTagName js/document "body")
+              (aget 0)
+              (.-dataset)
+              (.-mode)
+              (keyword))
+      :test-harness))
 
 ;; -------------------------
 ;; Routes
@@ -23,22 +32,12 @@
 (secretary/defroute boards-id-route "/boards/:id" {id :id}
   (session/put! :current-page (partial #'board-browser/board-browser-root (keyword id))))
 
+
+
 ;; -------------------------
 ;; Views
 
-;; TODO:
-;; - Test game harness page
-;;   - start new game, select port for server, select 3 bots, select board name, click start
-;;   - during game, select "autoplay", or directed play (next, rewind)
-;;   - ticking, scrollable log (written to js console? sounds better)
-;;
-;; - For each player in game:
-;;   - Number of lives left, current robot damage, number of flags touched
-;;   - player logo, name, robot name
-;;   -
-;; - board browser page
-
-(defn rr-nav
+(defn rr-test-harness-nav
   []
   [bs/navbar {:inverse true}
    [bs/navbar-header
@@ -51,7 +50,7 @@
 
 (defn current-page []
   [:div.page-root
-   [rr-nav]
+   [rr-test-harness-nav]
    [(session/get :current-page)]])
 
 ;; -------------------------

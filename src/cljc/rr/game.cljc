@@ -402,9 +402,9 @@
     (reduce robot-places-archive-marker state archive-squares)))
 
 (defn player-final-score
-  [player]
+  [player])
   ;;TODO
-  )
+
 
 (defn calculate-victory-status
   [state]

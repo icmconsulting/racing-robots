@@ -171,6 +171,7 @@
                                 (pjstadig.humane-test-output/activate!)]
 
                    :env {:dev true}}
+             :tournament {:env {:mode "tournament"}}
 
              :uberjar {:hooks [minify-assets.plugin/hooks]
                        :source-paths ["env/prod/clj"]

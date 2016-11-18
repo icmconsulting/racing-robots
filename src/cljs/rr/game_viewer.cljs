@@ -402,7 +402,7 @@
          [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :http])} "HTTP/REST"]
          (when (= :http (:connection-type new-game-player)) [port-number-input player-num])
          [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :lambda])} "AWS Lambda"]]
-          (when (= :lambda (:connection-type new-game-player)) [lambda-function-name-input player-num])]
+        (when (= :lambda (:connection-type new-game-player)) [lambda-function-name-input player-num])]
 
        ((set (keys bots/local-bots)) (:player-type new-game-player))
        (let [bot ((bots/local-bots (:player-type new-game-player)))]

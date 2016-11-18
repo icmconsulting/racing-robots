@@ -86,7 +86,14 @@
 
 
 (def all-available-boards
-  {:risky-exchange      {:board       risky-exchange
+  {;; test harness only boards
+   :proving-grounds     {:board       proving-grounds
+                         :key         :proving-grounds
+                         :description "For testing basic mechanics of your bot. Won't be used in the tournament"
+                         :test-only?  true}
+
+   ;; tournament boards
+   :risky-exchange      {:board       risky-exchange
                          :key         :risky-exchange
                          :description "An easy course to start on, but don’t fall off the edge!"}
    :dizzy-dash          {:board       dizzy-dash
@@ -95,12 +102,6 @@
    :chop-shop-challenge {:board       chop-shop-challenge
                          :key         :chop-shop-challenge
                          :description "Great risk, great reward"}
-
-   ;; test harness only boards
-   :proving-grounds     {:board       proving-grounds
-                         :key         :proving-grounds
-                         :description "For testing basic mechanics of your bot. Won't be used in the tournament"
-                         :test-only?  true}
 
    })
 

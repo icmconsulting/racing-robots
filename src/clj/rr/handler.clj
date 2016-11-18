@@ -7,12 +7,18 @@
             [rr.connectors :refer [bot-routes]]
             [config.core :refer [env]]))
 
+(def config {:mode (keyword (env :mode :test-harness))})
+
+(defn tournament-mode?
+  []
+  (= (:mode config) :tournament))
+
 (def mount-target
   [:div#app [:h3 "Standby for racing robots..."]])
 
 (defn head []
   [:head
-   [:title "racing robots test harness"]
+   [:title (if (tournament-mode?) "racing robots" "racing robots test harness")]
    [:meta {:charset "utf-8"}]
    [:meta {:name "viewport"
            :content "width=device-width, initial-scale=1"}]
@@ -21,7 +27,7 @@
 (defn loading-page []
   (html5
     (head)
-    [:body {:class "body-container" :data-csrf *anti-forgery-token*}
+    [:body (merge {:class "body-container" :data-csrf *anti-forgery-token* :data-mode (:mode config)})
      mount-target
      (include-js "/js/app.js")]))
 
