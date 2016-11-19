@@ -1,7 +1,7 @@
 (ns rr.bots
   (:require [rr.game :as game]
     #?(:cljs [cljs.core.async :as async]
-       :clj  [clojure.core.async :as async :refer [go go-loop]]))
+       :clj [clojure.core.async :as async :refer [go go-loop]]))
   #?(:cljs (:require-macros [cljs.core.async.macros :refer [go go-loop]])))
 
 ;; All bot funcs return a chan
@@ -80,3 +80,28 @@
                            :robot-name "Sneaky"
                            :avatar "/images/sneaky-avatar.png"}
                           maybe-cheat-response maybe-power-down)})
+
+(defmulti player-bot-instance :connection-type)
+
+(defmulti player-bot (juxt :player-type :connection-type))
+
+(defmethod player-bot [:player :http]
+  [player]
+  (let [player-data {:name            "Unloaded Human HTTP Bot"
+                     :connection-type :http
+                     :port            (:port player)}]
+    (assoc player-data :bot-instance-fn player-bot-instance)))
+
+(defmethod player-bot [:player :lambda]
+  [player]
+  (let [player-data {:name                 "Unloaded Human Lambda Bot"
+                     :connection-type      :lambda
+                     :lambda-function-name (:lambda-function-name player)
+                     :bonus-modifier       game/bonus-2-damage-points-modifier}]
+    (assoc player-data :bot-instance-fn player-bot-instance)))
+
+(defmethod player-bot :default
+  [{:keys [player-type]}]
+  (when-let [cpu-bot-fn (local-bots player-type)]
+    {:name "Loading CPU Bot"
+     :bot-instance (cpu-bot-fn)}))

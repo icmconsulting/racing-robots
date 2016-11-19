@@ -93,3 +93,15 @@
   (turn [bot game turn] (send-turn game player-id turn))
   (turn-complete [bot game turn] (send-turn-complete game player-id turn))
   (game-over [bot game results] (send-game-over game player-id)))
+
+(defmethod bots/player-bot-instance :http
+  [player]
+  (->RRAjaxBot (:id player)))
+
+(defmethod bots/player-bot-instance :lambda
+  [player]
+  (->RRAjaxBot (:id player)))
+
+(defmethod bots/player-bot-instance :docker
+  [player]
+  (->RRAjaxBot (:id player)))

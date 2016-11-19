@@ -3,9 +3,9 @@
             [reagent.session :as session]
             [taoensso.timbre :refer [debug info warn]]
             [cljs.core.async :as async]
-            [rr.ajax-bot :as ajax-bot]
             [rr.bs :as bs]
             [rr.bots :as bots]
+            [rr.ajax-bot]
             [rr.boards :as boards]
             [rr.board-viewer :refer [board-view board-parent-resize-props]]
             [rr.logger :as logger]
@@ -292,31 +292,9 @@
     (assoc-in game-state [:new-game :players player-num :lambda-function-name] function-name)
     (update-in game-state [:new-game :players player-num] dissoc :lambda-function-name)))
 
-(defmulti apply-player-bot (fn [player _] [(:player-type player) (:connection-type player)]))
-
-(defmethod apply-player-bot [:player :http]
+(defn apply-player-bot
   [player bot-image]
-  {:name "Loading Human HTTP Bot"
-   :bot-instance-fn #(ajax-bot/->RRAjaxBot (:id %))
-   :connection-type :http
-   :port (:port player)
-   :robot-image bot-image})
-
-(defmethod apply-player-bot [:player :lambda]
-  [player bot-image]
-  {:name "Loading Human Lambda Bot"
-   :bot-instance-fn #(ajax-bot/->RRAjaxBot (:id %))
-   :connection-type :lambda
-   :lambda-function-name (:lambda-function-name player)
-   :bonus-modifier game/bonus-2-damage-points-modifier
-   :robot-image bot-image})
-
-(defmethod apply-player-bot :default
-  [{:keys [player-type]} bot-image]
-  (when-let [cpu-bot-fn (bots/local-bots player-type)]
-    {:name "Loading CPU Bot"
-     :robot-image  bot-image
-     :bot-instance (cpu-bot-fn)}))
+  (assoc (bots/player-bot player) :robot-image bot-image))
 
 (defn kw->board
   [board]
@@ -399,9 +377,9 @@
        [bs/well
         [bs/form-group
          [bs/control-label "Connection type"]
-         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :http])} "HTTP/REST"]
+         [bs/radio {:name (str "connection" player-num) :on-change #(dispatch! [:player-connection-change player-num :http])} "HTTP/REST"]
          (when (= :http (:connection-type new-game-player)) [port-number-input player-num])
-         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :lambda])} "AWS Lambda"]]
+         [bs/radio {:name (str "connection" player-num) :on-change #(dispatch! [:player-connection-change player-num :lambda])} "AWS Lambda"]]
         (when (= :lambda (:connection-type new-game-player)) [lambda-function-name-input player-num])]
 
        ((set (keys bots/local-bots)) (:player-type new-game-player))

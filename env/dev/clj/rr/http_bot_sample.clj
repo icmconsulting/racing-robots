@@ -61,6 +61,7 @@
             (serve (get-handler)
                    {:port port
                     :auto-reload? true
+                    :open-browser? false
                     :join? false}))
     (println (str "Test bot available at -> http://localhost:" port))))
 
