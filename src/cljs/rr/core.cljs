@@ -7,7 +7,8 @@
               [rr.bs :as bs]
               [rr.logger :as logger]
               [rr.game-viewer :as game-viewer]
-              [rr.board-browser :as board-browser]))
+              [rr.board-browser :as board-browser]
+              [rr.registration :as registration]))
 
 (def mode
   (or (some-> (.getElementsByTagName js/document "body")
@@ -32,6 +33,10 @@
 (secretary/defroute boards-id-route "/boards/:id" {id :id}
   (session/put! :current-page (partial #'board-browser/board-browser-root (keyword id))))
 
+;; Registration routes
+(secretary/defroute registration-id-route "/registration/:id" {id :id}
+  (session/put! :current-page (partial #'registration/registration-root id)))
+
 
 
 ;; -------------------------
@@ -43,10 +48,11 @@
    [bs/navbar-header
     [bs/navbar-brand "Racing Robots"]
     [bs/navbar-toggle]]
-   [bs/navbar-collapse
-    [bs/nav
-     [bs/navbar-item {:href (new-game-route)} "Game"]
-     [bs/navbar-item {:href (boards-route)} "Boards"]]]])
+   (when (= :test-harness mode)
+     [bs/navbar-collapse
+      [bs/nav
+       [bs/navbar-item {:href (new-game-route)} "Game"]
+       [bs/navbar-item {:href (boards-route)} "Boards"]]])])
 
 (defn current-page []
   [:div.page-root

@@ -5,6 +5,7 @@
             [hiccup.page :refer [include-js include-css html5]]
             [rr.middleware :refer [wrap-middleware]]
             [rr.connectors :refer [bot-routes]]
+            [rr.registration :refer [registration-routes]]
             [config.core :refer [env]]))
 
 (def config {:mode (keyword (env :mode :test-harness))})
@@ -43,8 +44,10 @@
            (GET "/newgame" [] (loading-page))
            (GET "/boards" [] (loading-page))
            (GET "/boards/*" [] (loading-page))
+           (GET "/registration/*" [] (loading-page))
 
            (context "/bot" [] bot-routes)
+           (context "/registrations" [] registration-routes)
 
            (GET "/cards" [] (cards-page))
 

@@ -364,6 +364,3 @@
        [highlight-layer board rows row-height board-attrs])
      (when (contains? @board-attrs :players)
        [robot-layer row-height (:players @board-attrs)])]))
-
-;;TODO:
-;; - game controls - advance turn

@@ -3,7 +3,7 @@
             [goog.string :refer [format]]
             [taoensso.timbre :as timbre :refer [info]]
             [rr.game :as game]
-            [rr.utils :refer [player-short-id]]))
+            [rr.utils :refer [player-short-id ascii-title]]))
 
 (def robot-events-xf (mapcat (fn [player]
                                (map #(assoc % :player-name (:name player)
@@ -92,4 +92,4 @@
 
 (defn print-log-header
   []
-  (println "\n\n   ____  _____   __  ___        __ __              __          __    __                    ___   ___   ___  ____\n  /  _/ / ___/  /  |/  /       / // / ___ _ ____  / /__ ___ _ / /_  / /  ___   ___        |_  | / _ \\ <  / / __/\n _/ /  / /__   / /|_/ /       / _  / / _ `// __/ /  '_// _ `// __/ / _ \\/ _ \\ / _ \\      / __/ / // / / / / _ \\ \n/___/  \\___/  /_/  /_/       /_//_/  \\_,_/ \\__/ /_/\\_\\ \\_,_/ \\__/ /_//_/\\___//_//_/     /____/ \\___/ /_/  \\___/ \n   ___               _                      ___         __        __         __                                 \n  / _ \\ ___ _ ____  (_)  ___   ___ _       / _ \\ ___   / /  ___  / /_  ___  / /                                 \n / , _// _ `// __/ / /  / _ \\ / _ `/      / , _// _ \\ / _ \\/ _ \\/ __/ (_-< /_/                                  \n/_/|_| \\_,_/ \\__/ /_/  /_//_/ \\_, /      /_/|_| \\___//_.__/\\___/\\__/ /___/(_)                                   \n                             /___/                                                                              \n\n"))
+  (println ascii-title))
