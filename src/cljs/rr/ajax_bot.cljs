@@ -3,15 +3,9 @@
             [cljs.core.async :as async]
             [rr.boards :as boards]
             [rr.bots :as bots]
-            [rr.game :as game])
+            [rr.game :as game]
+            [rr.utils :refer [csrf-token]])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
-
-(defn csrf-token
-  []
-  (-> (.getElementsByTagName js/document "body")
-      (aget 0)
-      (.-dataset)
-      (.-csrf)))
 
 (defn response-handler
   [ch [ok response]]

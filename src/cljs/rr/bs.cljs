@@ -28,6 +28,9 @@
 (def button (adapt-react-class js/ReactBootstrap.Button))
 (def radio (adapt-react-class js/ReactBootstrap.Radio))
 
+(def input-group (adapt-react-class js/ReactBootstrap.InputGroup))
+(def input-group-addon (adapt-react-class js/ReactBootstrap.InputGroup.Addon))
+
 (def button-group (adapt-react-class js/ReactBootstrap.ButtonGroup))
 (def button-toolbar (adapt-react-class js/ReactBootstrap.ButtonToolbar))
 

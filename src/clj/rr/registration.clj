@@ -1,9 +1,7 @@
 (ns rr.registration
-  (:require [compojure.core :refer [GET POST defroutes context routes]]
+  (:require [compojure.core :refer [GET POST PUT defroutes context routes]]
             [taoensso.timbre :as timbre]
             [ring.util.response :as resp]
-            [clojure.data.json :as json]
-            [cognitect.transit :as transit]
             [config.core :refer [env]]
             [alandipert.enduro :as enduro]
             [camel-snake-kebab.core :refer :all]
@@ -27,17 +25,63 @@
   (enduro/reset! registrations (zipmap (repeatedly (comp str #(UUID/randomUUID))) teams)))
 
 ;; TODO: generate player registrations from team entries
-;; - Done via special page - enter in text area, 1 team player names per line
 ;; - Generates URLs - will slack manually to teams
-;; TODO: players visit registration page, enters their submission details
+
+(def default-other-bot (bots/player-bot {:player-type :zippy}))
+(def default-board boards/proving-grounds)
+
+(defn exec-bot-verification
+  [{:keys [bot-instance]}]
+  (go
+    (merge {:test :verification :description "Verify that your bot is up and can be contacted."}
+           (if (satisfies? bots/RRVerifiableBot bot-instance)
+             (bots/verify bot-instance)
+             {:result :pass}))))
+
+(defn exec-new-game-verification
+  [player]
+  (go
+    (let [new-game (game/new-game [player default-other-bot] default-board)
+          new-game-response (bots/new-game (:bot-instance player) new-game)]
+      (merge {:test :new-game :description "Initiate a new game with your bot, and fetch your profile"}
+             (if-not (= :ready (:response new-game-response))
+               {:result :fail :data new-game-response}
+               {:result :pass})))))
+
+(defn exec-player-bot-tests
+  [player-bot]
+  (let [player-bot (game/player-with-bot-instance player-bot)]
+    (go
+      [(async/<! (exec-bot-verification player-bot))
+       (async/<! (exec-new-game-verification player-bot))])))
+
+(defn execute-tests
+  [player]
+  (let [player-bot (merge (bots/player-bot player) (select-keys player [:registration-id]))
+        result-chan (async/pipe (exec-player-bot-tests player-bot) (async/timeout 30000))]
+    (async/<!! result-chan)))
+
+(defn test-and-maybe-save!
+  [registration]
+  (let [test-results (execute-tests (assoc registration :player-type :player))]
+    (if (and (seq test-results)
+             (every? #(= :pass (:result %)) test-results))
+      (do (enduro/swap! registrations assoc (:id registration) registration)
+          {:result :saved
+           :registration registration
+           :test-results test-results})
+      {:result :failed
+       :registration registration
+       :test-results test-results})))
 
 (defn registration-id-routes
   [registration-id]
-  (if-let [registration (get @registrations #spy/p registration-id)]
+  (if-let [registration (get @registrations registration-id)]
     (routes
-      (GET "/" [] (resp/response {:registration (assoc registration :id registration-id)}))
+      (GET "/" [] (resp/response {:registration (assoc registration :registration-id registration-id)}))
 
-      )
+      (PUT "/" {:keys [body]}
+           (resp/response (test-and-maybe-save! (:registration body)))))
     (resp/not-found {})))
 
 (defroutes registration-routes*

@@ -2,6 +2,7 @@
   (:require [rr.bots :as bots]
             [rr.bots.common :as common]
             [amazonica.aws.lambda :as lambda]
+            [amazonica.core :refer [ex->map]]
             [taoensso.timbre :as timbre]
             [rr.game :as game]))
 
@@ -24,11 +25,11 @@
           (do
             (warn "Invalid response received when invoking function" function-name)
             (warn (:message (first validation-result)))
-            ::invalid-response)
+            :rr.connectors/invalid-response)
           response))
       (catch com.amazonaws.AmazonServiceException e
         (error e "Error while invoking lambda function" function-name)
-        ::error-connecting))))
+        :rr.connectors/error-connecting))))
 
 (defn lambda-new-game
   [aws-creds function-name game player]
@@ -62,12 +63,34 @@
     (when (keyword? response) (warn "You don't seem to care about the results. That's fine. Good luck to you."))
     :ok))
 
+(defn verify-lambda-function
+  [aws-creds function-name]
+  (try
+    ;; Test get, then invocation
+    (lambda/get-function aws-creds :function-name function-name)
+
+    (if-not (= 200 (:status-code (lambda/invoke aws-creds :function-name function-name :payload {})))
+      {:result :fail :reason :lambda/function-failed-invocation}
+      {:result :pass})
+
+    (catch com.amazonaws.services.lambda.model.ResourceNotFoundException e
+      {:result :fail :reason :lambda/function-not-found})
+    (catch com.amazonaws.services.lambda.model.AWSLambdaException e
+      {:result :fail :reason (case (:error-code (ex->map e))
+                               "AccessDeniedException" :lambda/access-denied
+                               :lambda/lambda-service-exception)})
+    (catch com.amazonaws.AmazonServiceException e
+      (timbre/error e "General exception while executing [" function-name "]")
+      {:result :fail :reason :lambda/service-exception})))
+
 (defrecord RRLambdaBot [aws-creds function-name player]
   bots/RRBot
   (new-game [_ game] (lambda-new-game aws-creds function-name game player))
   (turn [_ game turn] (lambda-turn aws-creds function-name game player turn))
   (turn-complete [_ game turn] (lambda-turn-complete aws-creds function-name game player turn))
-  (game-over [_ game _] (lambda-game-over aws-creds function-name game player)))
+  (game-over [_ game _] (lambda-game-over aws-creds function-name game player))
+  bots/RRVerifiableBot
+  (verify [_] (verify-lambda-function aws-creds function-name)))
 
 (defmethod bots/player-bot-instance :lambda
   [player]

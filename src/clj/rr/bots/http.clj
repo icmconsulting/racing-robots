@@ -28,7 +28,7 @@
     (cond
       error (do
               (timbre/error error "Failed to connect to server to url " url)
-              ::error-connecting)
+              :rr.connectors/error-connecting)
       (and (= 200 status) (nil? validation-result))
       body
       :else
@@ -37,7 +37,7 @@
         (if (nil? validation-result)
           (warn "HTTP Status code: " status)
           (warn (:message (first validation-result))))
-        ::invalid-response))))
+        :rr.connectors/invalid-response))))
 
 (defn http-new-game
   [port game player]

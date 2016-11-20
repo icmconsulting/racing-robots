@@ -51,7 +51,7 @@
   [state player-id]
   (first (filter #(= player-id (:id %)) (:players state))))
 
-(def ^:dynamic *current-turn*)
+(def ^:dynamic *current-turn* nil)
 
 (defn robot-event
   [event-type & args]

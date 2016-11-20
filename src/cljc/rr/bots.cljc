@@ -10,8 +10,10 @@
   (new-game [bot game]) ; -> :ready or :fail
   (turn [bot game player-turn])                                    ; -> {:registers [], :powering-down bool}
   (turn-complete [bot game game-turn])                           ; -> :no-action|:power-down|:power-down-override
-  (game-over [bot game results])                            ; no response expected
-  )
+  (game-over [bot game results])) ; no response expected
+
+(defprotocol RRVerifiableBot
+  (verify [verifiable]))
 
 (defrecord RRLocalBot [state-atom profile card-selection-fn clean-up-fn]
   RRBot
