@@ -66,7 +66,9 @@
   (let [test-results (execute-tests (assoc registration :player-type :player))]
     (if (and (seq test-results)
              (every? #(= :pass (:result %)) test-results))
-      (do (enduro/swap! registrations assoc (:id registration) registration)
+      (do (enduro/swap! registrations assoc
+                        (:registration-id registration) (assoc registration :result :saved
+                                                                            :test-results test-results))
           {:result :saved
            :registration registration
            :test-results test-results})
