@@ -4,11 +4,10 @@
 - Add new boards - need board for grand final
 
 ## Tournament
-- Generate player tournament IDs
-
-- Player submits their solution
-    - Lambda function name
-    - Docker image tag
+- Player submits their solution    
+    - Docker <<< DO NEXT
+    - Add notes to successful registration page
+    - Show profile in successful alert    
     
 - Start new tournament - randomly generate draw from registrations
 - Tournament page should have big countdown timer until submissions end
@@ -16,3 +15,10 @@
     
 # Game viewer
 - Limit player and robot names to avoid messing up the score sheet
+
+# Info
+- Game instructions + differences from Robot Rally
+- Rules
+- Sample implementations
+- Test harness build + instructions
+

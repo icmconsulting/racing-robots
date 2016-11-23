@@ -25,7 +25,6 @@
                    {:port port
                     :open-browser? false
                     :auto-reload? false
-                    :reload-paths []
                     :join? false}))
     (println (str "You can view the site at http://localhost:" port))))
 

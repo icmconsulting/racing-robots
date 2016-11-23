@@ -20,7 +20,7 @@
                  [compojure "1.5.1"]
                  [hiccup "1.0.5"]
                  [http-kit "2.2.0"]
-                 [com.spotify/docker-client "3.5.12"]
+                 [com.spotify/docker-client "6.1.0"]
                  [amazonica "0.3.77" :exclusions [com.google.guava/guava]]
                  [cljs-ajax "0.5.8"]
                  [org.clojure/core.async "0.2.395"]
