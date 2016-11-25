@@ -34,15 +34,19 @@
   [{:keys [bot-instance]}]
   (go
     (merge {:test :verification :description "Verify that your bot is up and can be contacted."}
-           (if (satisfies? bots/RRVerifiableBot bot-instance)
-             (bots/verify bot-instance)
-             {:result :pass}))))
+           (try (if (satisfies? bots/RRVerifiableBot bot-instance)
+                  (bots/verify bot-instance)
+                  {:result :pass})
+                (catch Throwable e
+                  {:result :fail :reason :exception :messages [(.getMessage e)]})))))
 
 (defn exec-new-game-verification
   [player]
   (go
     (let [new-game (game/new-game [player default-other-bot] default-board)
-          new-game-response (bots/new-game (:bot-instance player) new-game)]
+          new-game-response (try (bots/new-game (:bot-instance player) new-game)
+                                 (catch Throwable e
+                                   {:exception (.getMessage e)}))]
       (merge {:test :new-game :description "Initiate a new game with your bot, and fetch your profile"}
              (if-not (= :ready (:response new-game-response))
                {:result :fail :data new-game-response}
@@ -52,8 +56,9 @@
   [player-bot]
   (let [player-bot (game/player-with-bot-instance player-bot)]
     (go
-      [(async/<! (exec-bot-verification player-bot))
-       (async/<! (exec-new-game-verification player-bot))])))
+      (let [bot-verification (async/<! (exec-bot-verification player-bot))
+            new-game-verification (async/<! (exec-new-game-verification player-bot))]
+        [bot-verification new-game-verification]))))
 
 (defn execute-tests
   [player]

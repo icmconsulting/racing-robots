@@ -40,7 +40,27 @@
 
 (defn docker-image-input
   []
-  )
+  [bs/form-group
+   [bs/control-label "docker image"]
+   [bs/input-group
+    [bs/form-control {:type        :text
+                      :placeholder "image e.g. icm-consulting/my-hackathon-docker-image"
+                      :value       (:image-id @registration-state "")
+                      :on-change   #(dispatch! [:submission-image-id (-> % .-target .-value)])}]
+    [bs/input-group-addon
+     ":"]
+    [bs/form-control {:type        :text
+                      :placeholder "tag e.g. latest"
+                      :value       (:tag @registration-state "")
+                      :on-change   #(dispatch! [:submission-tag (-> % .-target .-value)])}]]])
+
+(defmethod dispatch-event-type :submission-image-id
+  [registration-state [_ function-name]]
+  (assoc registration-state :image-id function-name))
+
+(defmethod dispatch-event-type :submission-tag
+  [registration-state [_ function-name]]
+  (assoc registration-state :tag function-name))
 
 (defmethod dispatch-event-type :submission-function-name
   [registration-state [_ function-name]]
@@ -67,6 +87,10 @@
     (= :lambda (:connection-type registration-state))
     (not (clojure.string/blank? (:lambda-function-name registration-state)))
 
+    (= :docker (:connection-type registration-state))
+    (and (not (clojure.string/blank? (:image-id registration-state)))
+         (not (clojure.string/blank? (:tag registration-state))))
+
     :else false))
 
 (defn submission-selection
@@ -87,9 +111,10 @@
       [lambda-function-name-input])]])
 
 (defmethod dispatch-event-type :reset!
-  [_ _]
+  [registration-state _]
   ;;TODO: clear on backend, too
-  {})
+  (go (fetch-registration! (:registration-id registration-state)))
+  (select-keys registration-state [:registration-id]))
 
 (defmethod dispatch-event-type :test!
   [registration-state _]

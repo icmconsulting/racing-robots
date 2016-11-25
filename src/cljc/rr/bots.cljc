@@ -102,6 +102,13 @@
                      :bonus-modifier       game/bonus-2-damage-points-modifier}]
     (assoc player-data :bot-instance-fn player-bot-instance)))
 
+(defmethod player-bot [:player :docker]
+  [player]
+  (let [player-data (merge {:name            "Unloaded Human Docker Bot"
+                            :connection-type :docker}
+                           (select-keys player [:image-id :tag]))]
+    (assoc player-data :bot-instance-fn player-bot-instance)))
+
 (defmethod player-bot :default
   [{:keys [player-type]}]
   (when-let [cpu-bot-fn (local-bots player-type)]

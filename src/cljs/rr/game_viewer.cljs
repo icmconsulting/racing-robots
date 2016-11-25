@@ -292,11 +292,9 @@
     (assoc-in game-state [:new-game :players player-num :lambda-function-name] function-name)
     (update-in game-state [:new-game :players player-num] dissoc :lambda-function-name)))
 
-
 (defn apply-player-bot
   [player bot-image]
-  (assoc (bots/player-bot player) :bot-image bot-image))
-
+  (assoc (bots/player-bot player) :robot-image bot-image))
 
 (defn kw->board
   [board]

@@ -11,7 +11,9 @@
             [clojure.core.async :as async])
   (:import [com.spotify.docker.client DefaultDockerClient ProgressHandler
                                       DockerClient$ListContainersParam DockerClient$ListContainersFilterParam]
-           [com.spotify.docker.client.messages AuthConfig ContainerConfig HostConfig PortBinding]))
+           [com.spotify.docker.client.messages AuthConfig ContainerConfig HostConfig PortBinding]
+           [java.net Socket InetSocketAddress]
+           [java.io IOException]))
 
 (def docker-client (-> (DefaultDockerClient/fromEnv)
                        (.build)))
@@ -74,6 +76,19 @@
      :port            (some-> container-info (.networkSettings) (.ports) (get "8080/tcp") (first) (.hostPort))
      :container-info  container-info}))
 
+(defn wait-until-port-ready
+  [host port]
+  (let [socket (doto (Socket.) (.setReuseAddress true))
+        socket-addr (InetSocketAddress. host (Integer/parseInt port))]
+    (try
+      (.connect socket socket-addr 500)
+      :ready
+      (catch IOException _ :failed)
+      (finally
+        (try
+          (when socket (.close socket))
+          (catch Throwable _))))))
+
 (defn start-container
   [image]
   (try
@@ -84,15 +99,34 @@
       (doseq [warning (.getWarnings container)]
         (timbre/warn warning))
       (.startContainer docker-client container-id)
+
+      ;; Wait until container is running
       (let [counter (atom 0)]
         (while (and (< @counter 100)
                     (not= :running (get (container-info container-id) :state)))
           (swap! counter inc)
           (Thread/sleep 100)))
-      (container-info container-id))
+
+      ;; Wait until the exposed port is accepting connections
+      (let [counter (atom 0)
+            container-info (container-info container-id)]
+        (if (:port container-info)
+          (do
+            (while (and (< @counter 100)
+                        (not= :ready (wait-until-port-ready (:host container-info) (:port container-info))))
+              (swap! counter inc)
+              (Thread/sleep 100))
+
+            (if (= :ready (wait-until-port-ready (:host container-info) (:port container-info)))
+              container-info
+              (do
+                (timbre/error "Could not connect to docker host port.")
+                {:state :fail :reason :could-not-connect})))
+
+          {:state :fail :reason :no-exposed-port})))
     (catch Throwable e
       (timbre/error e "Failed to start container for image " image)
-      {:state :fail :exception e})))
+      {:state :fail :exception (.getMessage e)})))
 
 (def docker-error-message (filter :error))
 
@@ -128,13 +162,13 @@
            :reason :docker/start-container-failed
            :messages [{:error "Could not start container" :container started-container}]})))))
 
-;(verify-docker-image {} "icm-consulting/lein-clojure-build" "latest")
+;(verify-docker-image {:endpoint "ap-southeast-2"} "icm-consulting/bb-test" "latest")
 
 (defmacro http-bot-for-container
   [image-id tag player bot-binding & body]
   `(let [image-uri# (image-identifier ~image-id ~tag)
          running-containers# (running-containers-for-image image-uri#)
-         container# (when-not (seq running-containers#)
+         container# (if-not (seq running-containers#)
                      (start-container image-uri#)
                      (first running-containers#))
          body-fn# (fn [~bot-binding] ~@body)]
@@ -142,18 +176,18 @@
        (do
          (timbre/error "Container" (:container-id container#) "is in state " (:state container#) " - need it to be :running")
          :rr.connectors/error-connecting)
-       (body-fn# (bots.http/->RRHttpBot [(:host container#) (:port container#)] player)))))
+       (body-fn# (bots.http/->RRHttpBot [(:host container#) (:port container#)] ~player)))))
 
 (defrecord RRDockerBot [aws-creds image-id tag player]
   bots/RRBot
   (new-game [_ game] (http-bot-for-container image-id tag player http-bot
-                                             (new-game http-bot game)))
+                                             (bots/new-game http-bot game)))
   (turn [_ game turn] (http-bot-for-container image-id tag player http-bot
-                                              (turn http-bot game turn)))
+                                              (bots/turn http-bot game turn)))
   (turn-complete [_ game turn] (http-bot-for-container image-id tag player http-bot
-                                                       (turn-complete http-bot game turn)))
+                                                       (bots/turn-complete http-bot game turn)))
   (game-over [_ game results] (http-bot-for-container image-id tag player http-bot
-                                                      (game-over http-bot game results)))
+                                                      (bots/game-over http-bot game results)))
   bots/RRVerifiableBot
   (verify [_] (verify-docker-image aws-creds image-id tag)))
 
