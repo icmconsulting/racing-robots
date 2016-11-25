@@ -68,7 +68,7 @@
   (when-let [container-info (.inspectContainer docker-client container-id)]
     {:container-id    container-id
      :image           (.image container-info)
-     :ip-address      (.getHost docker-client)
+     :host            (.getHost docker-client)
      :current-info-fn #(container-info container-id)
      :state           (some-> container-info (.state) (.status) (keyword))
      :port            (some-> container-info (.networkSettings) (.ports) (get "8080/tcp") (first) (.hostPort))
@@ -85,7 +85,7 @@
         (timbre/warn warning))
       (.startContainer docker-client container-id)
       (let [counter (atom 0)]
-        (while (and (< @counter 300)
+        (while (and (< @counter 100)
                     (not= :running (get (container-info container-id) :state)))
           (swap! counter inc)
           (Thread/sleep 100)))
@@ -130,11 +130,33 @@
 
 ;(verify-docker-image {} "icm-consulting/lein-clojure-build" "latest")
 
+(defmacro http-bot-for-container
+  [image-id tag player bot-binding & body]
+  `(let [image-uri# (image-identifier ~image-id ~tag)
+         running-containers# (running-containers-for-image image-uri#)
+         container# (when-not (seq running-containers#)
+                     (start-container image-uri#)
+                     (first running-containers#))
+         body-fn# (fn [~bot-binding] ~@body)]
+     (if (not= :running (:state container#))
+       (do
+         (timbre/error "Container" (:container-id container#) "is in state " (:state container#) " - need it to be :running")
+         :rr.connectors/error-connecting)
+       (body-fn# (bots.http/->RRHttpBot [(:host container#) (:port container#)] player)))))
+
 (defrecord RRDockerBot [aws-creds image-id tag player]
   bots/RRBot
-  (new-game [_ game] )
-  (turn [_ game turn] )
-  (turn-complete [_ game turn] )
-  (game-over [_ game _] )
+  (new-game [_ game] (http-bot-for-container image-id tag player http-bot
+                                             (new-game http-bot game)))
+  (turn [_ game turn] (http-bot-for-container image-id tag player http-bot
+                                              (turn http-bot game turn)))
+  (turn-complete [_ game turn] (http-bot-for-container image-id tag player http-bot
+                                                       (turn-complete http-bot game turn)))
+  (game-over [_ game results] (http-bot-for-container image-id tag player http-bot
+                                                      (game-over http-bot game results)))
   bots/RRVerifiableBot
   (verify [_] (verify-docker-image aws-creds image-id tag)))
+
+(defmethod bots/player-bot-instance :docker
+  [player]
+  (->RRDockerBot {:endpoint "ap-southeast-2"} (:image-id player) (:tag player) player))

@@ -9,8 +9,8 @@
 (timbre/refer-timbre)
 
 (defn local-address
-  [port & path-parts]
-  (clojure.string/join "/" (cons (str "http://localhost:" port) path-parts)))
+  [[host port] & path-parts]
+  (clojure.string/join "/" (cons (str "http://" host ":" port) path-parts)))
 
 (defn- json-response? [resp]
   (when-let [type (get-in resp [:headers :content-type])]
@@ -71,13 +71,13 @@
     (when (keyword? resp) (warn "You don't seem to care about the results. That's fine. Good luck to you."))
     :ok))
 
-(defrecord RRHttpBot [port player]
+(defrecord RRHttpBot [server player]
   bots/RRBot
-  (new-game [_ game] (http-new-game port game player))
-  (turn [_ game turn] (http-turn port game player turn))
-  (turn-complete [_ game turn] (http-turn-complete port game player turn))
-  (game-over [bot game results] (http-game-over port game player)))
+  (new-game [_ game] (http-new-game server game player))
+  (turn [_ game turn] (http-turn server game player turn))
+  (turn-complete [_ game turn] (http-turn-complete server game player turn))
+  (game-over [_ game results] (http-game-over server game player)))
 
 (defmethod bots/player-bot-instance :http
   [player]
-  (->RRHttpBot (:port player) player))
+  (->RRHttpBot ["localhost" (:port player)] player))
