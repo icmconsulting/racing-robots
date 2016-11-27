@@ -50,7 +50,7 @@
       (merge {:test :new-game :description "Initiate a new game with your bot, and fetch your profile"}
              (if-not (= :ready (:response new-game-response))
                {:result :fail :data new-game-response}
-               {:result :pass})))))
+               {:result :pass :profile (:profile new-game-response)})))))
 
 (defn exec-player-bot-tests
   [player-bot]
@@ -72,8 +72,9 @@
     (if (and (seq test-results)
              (every? #(= :pass (:result %)) test-results))
       (do (enduro/swap! registrations assoc
-                        (:registration-id registration) (assoc registration :result :saved
-                                                                            :test-results test-results))
+                        (:registration-id registration)
+                        (assoc registration :result :saved
+                                            :test-results test-results))
           {:result :saved
            :registration registration
            :test-results test-results})

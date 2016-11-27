@@ -8,7 +8,7 @@
             [rr.bots :as bots]
             [rr.game :as game]
             [rr.runner :as runner]
-            [rr.utils :refer [ascii-title csrf-token]])
+            [rr.utils :refer [ascii-title csrf-token player-short-id]])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (defonce registration-state (atom {:waiting? true}))
@@ -137,6 +137,18 @@
   (error error "Error while testing player registration")
   (assoc registration-state :testing? false))
 
+(defn profile-view
+  []
+  (let [profile (:profile (first (filter :profile (:test-results @registration-state))))]
+    [:div
+     [:h3.player-name
+      [:span.player-images
+       [:span
+        [:img {:src (:avatar profile) :alt name}]]]
+      [:span.full-name
+       [:span.robot-name (:robot-name profile)]
+       [:span.team-name (:name profile)]]]]))
+
 (defn registration-form-buttons
   []
   [:div.registration-buttons
@@ -179,7 +191,7 @@
           (= :saved (:result @registration-state))
           [bs/alert {:bs-style :success}
            [:p [:strong "Registration successful!"]]
-           [:p "TODO: profile here..."]
+           [profile-view]
            (case (:connection-type @registration-state)
              :docker
              [:p [:strong "Note! "] "You will need to" [:strong " resubmit your registration again "] "if/when you push a new version of your docker image."]

@@ -114,6 +114,50 @@ button, input, select {
       }
     }
 
+    .player-profile {
+      flex-basis: 40%;
+
+      display: flex;
+      flex-direction: row;
+
+      font-size: 1em;
+      margin: 0.3em 0;
+
+      .full-name {
+        display: inline-block;
+        margin: 0 0.5em;
+        padding-top: 0.25em;
+
+        > span {
+          display: block;
+        }
+        .team-name {
+          font-size: 1em;
+        }
+        .player-id {
+          font-size: 0.75em;
+        }
+        .robot-name {
+          font-size: 1.1em;
+        }
+      }
+      .player-images {
+        display: flex;
+        flex-direction: row;
+        span {
+          .thumbnail();
+
+          margin-bottom: 0px;
+          img {
+            width: 50px;
+            height: 50px;
+            min-width: 50px;
+            min-height: 50px;
+          }
+        }
+      }
+    }
+
     .game-viewer-root {
       .three-column-flex();
 
@@ -157,47 +201,7 @@ button, input, select {
               flex-direction: column;
 
               h3.player-name {
-                flex-basis: 40%;
-
-                display: flex;
-                flex-direction: row;
-
-                font-size: 1em;
-                margin: 0.3em 0;
-
-                .full-name {
-                  display: inline-block;
-                  margin: 0 0.5em;
-                  padding-top: 0.25em;
-
-                  > span {
-                    display: block;
-                  }
-                  .team-name {
-                    font-size: 1em;
-                  }
-                  .player-id {
-                    font-size: 0.75em;
-                  }
-                  .robot-name {
-                    font-size: 1.1em;
-                  }
-                }
-                .player-images {
-                  display: flex;
-                  flex-direction: row;
-                  span {
-                    .thumbnail();
-
-                    margin-bottom: 0px;
-                    img {
-                      width: 50px;
-                      height: 50px;
-                      min-width: 50px;
-                      min-height: 50px;
-                    }
-                  }
-                }
+                .player-profile();
               }
               .scores {
                 flex-basis: 40%;
@@ -447,6 +451,14 @@ button, input, select {
 
       .registration-middle {
         .board-view-container();
+
+        .player-name {
+          .player-profile();
+
+          padding-left: 1em;
+          margin: 1.5em auto;
+          border-left: 5px solid darken(@background-background, 50%);
+        }
 
         .registration-buttons {
           margin-top: 1em;
