@@ -112,7 +112,6 @@
 
 (defmethod dispatch-event-type :reset!
   [registration-state _]
-  ;;TODO: clear on backend, too
   (go (fetch-registration! (:registration-id registration-state)))
   (select-keys registration-state [:registration-id]))
 
@@ -166,6 +165,26 @@
                :disabled (:testing? @registration-state)
                :on-click #(dispatch! [:reset!])} "Reset"]])
 
+(def reason-descriptions
+  {:lambda/function-failed-invocation "The Lambda function failed, returning a HTTP status other than 200"
+   :lambda/function-not-found "The Lambda function could not be found. Did you enter it correctly?"
+   :lambda/lambda-service-exception "Lambda threw an Exception during execution."
+   :lambda/service-exception "An AWS Service Exception occurred. This could mean just about anything."
+
+   :docker/pull-failed "The docker image specified could not be pulled from the AWS ECR. Does it exist?"
+   :docker/start-container-failed "A container for the selected image could not be started."
+
+   :exception "An exception was caught whilst executing the test."
+   :not-ready "An invalid response was received whilst attempting to start a new game"})
+
+(defn test-result-view
+  [test]
+  [:li (if (= :pass (:result test))
+         [bs/glyph {:glyph :ok}]
+         [bs/glyph {:glyph :remove}])
+   " " [:abbr {:title (:description test)} [:strong (:test test)]]
+   [:span.failure-result (get reason-descriptions (:reason test))]])
+
 (defn registration-form
   []
   [bs/panel {:class "registration-entry-root"}
@@ -181,10 +200,7 @@
            [:ul.tests
             (for [test (:test-results @registration-state)]
               ^{:key (str "test-" (:test test))}
-              [:li (if (= :pass (:result test))
-                     [bs/glyph {:glyph :ok}]
-                     [bs/glyph {:glyph :remove}])
-               " " [:strong (:test test)] " - " (:description test)])]
+              [test-result-view test])]
            [:p "Your registration has " [:strong "not"] " been saved. Fix up the issue, and resubmit." [:br]]
            [registration-form-buttons]]
 

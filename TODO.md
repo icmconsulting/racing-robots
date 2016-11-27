@@ -5,8 +5,6 @@
 
 ## Tournament
 - Player submits their solution    
-    - Add notes to successful registration page
-    - Show profile in successful alert
     - Show logs for failed attempt
     
 - Start new tournament - randomly generate draw from registrations
