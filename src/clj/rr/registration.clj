@@ -30,27 +30,47 @@
 (def default-other-bot (bots/player-bot {:player-type :zippy}))
 (def default-board boards/proving-grounds)
 
+(defn format-log
+  [data]
+  {:message (force (:output_ data))})
+
+(defmacro with-captured-logs
+  [& body]
+  `(let [logs# (atom [])]
+     (timbre/with-merged-config
+       {:appenders
+        {:captured {:enabled?  true :async? false
+                    :min-level nil
+                    :output-fn (partial timbre/default-output-fn {:no-stacktrace? true})
+                    :fn        #(swap! logs# conj (format-log %))}}}
+       (let [res# ~@body]
+         (if (map? res#)
+           (assoc res# :logs @logs#)
+           res#)))))
+
 (defn exec-bot-verification
   [{:keys [bot-instance]}]
   (go
-    (merge {:test :verification :description "Verify that your bot is up and can be contacted."}
-           (try (if (satisfies? bots/RRVerifiableBot bot-instance)
-                  (bots/verify bot-instance)
-                  {:result :pass})
-                (catch Throwable e
-                  {:result :fail :reason :exception :messages [(.getMessage e)]})))))
+    (with-captured-logs
+      (merge {:test :verification :description "Verify that your bot is up and can be contacted."}
+             (try (if (satisfies? bots/RRVerifiableBot bot-instance)
+                    (bots/verify bot-instance)
+                    {:result :pass})
+                  (catch Throwable e
+                    {:result :fail :reason :exception :messages [(.getMessage e)]}))))))
 
 (defn exec-new-game-verification
   [player]
   (go
-    (let [new-game (game/new-game [player default-other-bot] default-board)
-          new-game-response (try (bots/new-game (:bot-instance player) new-game)
-                                 (catch Throwable e
-                                   {:exception (.getMessage e)}))]
-      (merge {:test :new-game :description "Initiate a new game with your bot, and fetch your profile"}
-             (if-not (= :ready (:response new-game-response))
-               {:result :fail :data new-game-response :reason (if (:exception new-game-response) :exception :not-ready)}
-               {:result :pass :profile (:profile new-game-response)})))))
+    (with-captured-logs
+      (let [new-game (game/new-game [player default-other-bot] default-board)
+            new-game-response (try (bots/new-game (:bot-instance player) new-game)
+                                   (catch Throwable e
+                                     {:exception (.getMessage e)}))]
+        (merge {:test :new-game :description "Initiate a new game with your bot, and fetch your profile"}
+               (if-not (= :ready (:response new-game-response))
+                 {:result :fail :data new-game-response :reason (if (:exception new-game-response) :exception :not-ready)}
+                 {:result :pass :profile (:profile new-game-response)}))))))
 
 (defn exec-player-bot-tests
   [player-bot]

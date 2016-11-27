@@ -17,7 +17,7 @@
 
 (defn dispatch!
   [event]
-  (swap! registration-state dispatch-event-type event))
+  (reagent/rswap! registration-state dispatch-event-type event))
 
 (defn fetch-registration!
   [registration-id]
@@ -118,7 +118,7 @@
 (defmethod dispatch-event-type :test!
   [registration-state _]
   (PUT (str "/registrations/" (:registration-id registration-state))
-       {:params {:registration (dissoc registration-state :testing?)}
+       {:params {:registration (dissoc registration-state :testing? :logs?)}
         :headers {"x-csrf-token" (csrf-token)}
         :handler #(dispatch! [:test-results %])
         :error-handler #(dispatch! [:test-error %])})
@@ -135,6 +135,10 @@
   [registration-state [_ error]]
   (error error "Error while testing player registration")
   (assoc registration-state :testing? false))
+
+(defmethod dispatch-event-type :toggle-logs!
+  [registration-state _]
+  (update registration-state :logs? not))
 
 (defn profile-view
   []
@@ -158,12 +162,15 @@
                              (:testing? @registration-state))
                :on-click #(dispatch! [:test!])}
     (cond (:testing? @registration-state) "Verifying bot..."
-          (:result @registration-state) "Resubmit"
+          (= :saved (:result @registration-state)) "Resubmit"
           :else "Test your submission")]
    [bs/button {:bs-size  :large
                :bs-style :default
                :disabled (:testing? @registration-state)
-               :on-click #(dispatch! [:reset!])} "Reset"]])
+               :on-click #(dispatch! [:reset!])} "Reset"]
+   (when (#{:saved :failed} (:result @registration-state))
+     [:a {:on-click #(dispatch! [:toggle-logs!])}
+      (if (:logs? @registration-state) "Hide Logs" "Show Logs")])])
 
 (def reason-descriptions
   {:lambda/function-failed-invocation "The Lambda function failed, returning a HTTP status other than 200"
@@ -184,6 +191,17 @@
          [bs/glyph {:glyph :remove}])
    " " [:abbr {:title (:description test)} [:strong (:test test)]]
    [:span.failure-result (get reason-descriptions (:reason test))]])
+
+(defn log-view
+  []
+  [:div
+   [:pre.pre-scrollable
+    (for [test (:test-results @registration-state)]
+      (str
+        "--------------------------------------------\n"
+        "Logs for test \"" (name (:test test)) "\"\n"
+           (clojure.string/join "\n" (map :message (:logs test)))
+        "\n"))]])
 
 (defn registration-form
   []
@@ -215,7 +233,10 @@
              [:p [:strong "Note! "] "There is no need to resubmit this registration unless your function name changes."])
            [registration-form-buttons]]
 
-          :else [registration-form-buttons])]])
+          :else [registration-form-buttons])
+
+    (when (:logs? @registration-state)
+      [log-view])]])
 
 (defn registration-middle-section
   []
@@ -233,12 +254,19 @@
      :else
      [registration-form])])
 
+(defn registration-view*
+  [_]
+  [:section.registration-root
+   [:section.left]
+   [registration-middle-section]
+   [:section.right]])
+
+(def registration-view
+  (with-meta registration-view*
+             {:component-did-mount (fn [this]
+                                     (println "MOUNTING!" (last (reagent/argv this)))
+                                     (fetch-registration! (last (reagent/argv this))))}))
+
 (defn registration-root
   [registration-id]
-  (fetch-registration! registration-id)
-  (fn [_]
-    [:section.registration-root
-     [:section.left]
-     [registration-middle-section]
-     [:section.right]]))
-
+  [registration-view registration-id])

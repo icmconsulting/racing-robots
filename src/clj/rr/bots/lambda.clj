@@ -67,15 +67,21 @@
   [aws-creds function-name]
   (try
     ;; Test get, then invocation
+    (timbre/info "Testing whether function [" function-name "] exists...")
     (lambda/get-function aws-creds :function-name function-name)
+    (timbre/info "Function [" function-name "] exists. Testing invocation....")
 
     (if-not (= 200 (:status-code (lambda/invoke aws-creds :function-name function-name :payload {})))
-      {:result :fail :reason :lambda/function-failed-invocation}
+      (do
+        (timbre/error "Invocation of function [" function-name "] failed!")
+        {:result :fail :reason :lambda/function-failed-invocation})
       {:result :pass})
 
     (catch com.amazonaws.services.lambda.model.ResourceNotFoundException e
+      (timbre/error e "Resource not found exception for function [" function-name "]")
       {:result :fail :reason :lambda/function-not-found})
     (catch com.amazonaws.services.lambda.model.AWSLambdaException e
+      (timbre/error e "AWS Lambda Exception while testing function [" function-name "]")
       {:result :fail :reason (case (:error-code (ex->map e))
                                "AccessDeniedException" :lambda/access-denied
                                :lambda/lambda-service-exception)})
