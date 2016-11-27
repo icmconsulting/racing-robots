@@ -139,14 +139,16 @@
 
 (defn registration-form-buttons
   []
-  [:div
+  [:div.registration-buttons
    [bs/button {:bs-size  :large
                :bs-style :primary
                :class    (when (:testing? @registration-state) "pulse")
                :disabled (or (not (can-test? @registration-state))
                              (:testing? @registration-state))
                :on-click #(dispatch! [:test!])}
-    (if (:testing? @registration-state) "Verifying bot..." "Test your submission")]
+    (cond (:testing? @registration-state) "Verifying bot..."
+          (:result @registration-state) "Resubmit"
+          :else "Test your submission")]
    [bs/button {:bs-size  :large
                :bs-style :default
                :disabled (:testing? @registration-state)
@@ -178,8 +180,11 @@
           [bs/alert {:bs-style :success}
            [:p [:strong "Registration successful!"]]
            [:p "TODO: profile here..."]
-           [:p "TODO: note for docker players here RE: if image changes, they will need to resubmit..."]
-           [:p "TODO: note for lambda players here RE: no need to resubmit unless their function name changes..."]
+           (case (:connection-type @registration-state)
+             :docker
+             [:p [:strong "Note! "] "You will need to" [:strong " resubmit your registration again "] "if/when you push a new version of your docker image."]
+             :lambda
+             [:p [:strong "Note! "] "There is no need to resubmit this registration unless your function name changes."])
            [registration-form-buttons]]
 
           :else [registration-form-buttons])]])

@@ -5,9 +5,9 @@
 
 ## Tournament
 - Player submits their solution    
-    - Docker <<< DO NEXT
     - Add notes to successful registration page
-    - Show profile in successful alert    
+    - Show profile in successful alert
+    - Show logs for failed attempt
     
 - Start new tournament - randomly generate draw from registrations
 - Tournament page should have big countdown timer until submissions end
