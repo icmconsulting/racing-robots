@@ -11,7 +11,8 @@
             [rr.logger :as logger]
             [rr.game :as game]
             [rr.runner :as runner]
-            [rr.utils :refer [image-obj player-short-id]])
+            [rr.utils :refer [image-obj player-short-id]]
+            [taoensso.timbre :as timbre])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (def empty-game {:new-game {:players [{} {} {} {}] :state :not-started :board :random}})
@@ -270,7 +271,9 @@
 
 (defmethod dispatch-event-type :player-type-change
   [game-state [_ player-num selected-player-type]]
-  (assoc-in game-state [:new-game :players player-num :player-type] (keyword selected-player-type)))
+  (-> game-state
+      (assoc-in [:new-game :players player-num :player-type] (keyword selected-player-type))
+      (update-in [:new-game :players player-num] dissoc :connection-type :port :lambda-function-name)))
 
 (defmethod dispatch-event-type :player-connection-change
   [game-state [_ player-num connection-type]]
@@ -391,12 +394,12 @@
   (let [{:keys [players]} new-game
         player-players (filter #(= :player (:player-type %)) players)
         http-players (filter #(= :http (:connection-type %)) players)
-        socket-players (filter #(= :socket (:connection-type %)) players)]
+        lambda-players (filter #(= :lambda (:connection-type %)) players)]
     (and
       (every? :player-type players)
       (every? :connection-type player-players)
       (every? :port http-players)
-      (every? :port socket-players))))
+      (every? :lambda-function-name lambda-players))))
 
 (defn board-selection
   []
@@ -603,6 +606,15 @@
    [:span.lives (:lives robot)]
    [robot-flags-view robot]])
 
+(def max-robot-name-size 18)
+(def max-player-team-name-size 40)
+
+(defn truncate-name
+  [max-size name]
+  (if (< max-size (count name))
+    (str (subs name 0 (- max-size 3)) "...")
+    name))
+
 (defn player-score-sheet
   [player-num position]
   (let [{:keys [name avatar robot robot-image id] :as player} (nth (game/players (:game @game-state)) player-num)
@@ -619,8 +631,8 @@
               [:span
                [:img {:src (.-src robot-image) :alt name}]]]
              [:span.full-name
-              [:span.robot-name (:robot-name player)]
-              [:span.team-name name]
+              [:span.robot-name (truncate-name max-robot-name-size (:robot-name player))]
+              [:span.team-name (truncate-name max-player-team-name-size name)]
               [:span.player-id (player-short-id player)]]]]
            (if-not dead?
              [[robot-active-scores robot]

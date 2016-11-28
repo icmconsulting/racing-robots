@@ -4,10 +4,11 @@
 - Add new boards - need board for grand final
 
 ## Tournament
-- Player submits their solution    
-    - Add more log messages for verification steps...
     
 - Start new tournament - randomly generate draw from registrations
+
+
+
 - Tournament page should have big countdown timer until submissions end
     - Just do this on a separate page
     
