@@ -79,7 +79,16 @@
                                 (partial bot-response-for-turn game turn)
                                 (fn [responses]
                                   (let [completed-turn (apply-bot-responses turn responses)]
-                                    [completed-turn (game/after-each-register-for-turn game completed-turn)])))))
+                                    [completed-turn (game/after-each-register-for-turn game completed-turn) turn])))))
+
+(defn repeat-turn
+  "Like next-turn, but repeats an already completed turn"
+  [game turn]
+  (send-and-collect-responses (game/deal-cards-to-players turn)
+                              (partial bot-response-for-turn game turn)
+                              (fn [responses]
+                                (let [completed-turn (apply-bot-responses turn responses)]
+                                  [completed-turn (game/after-each-register-for-turn game completed-turn) turn]))))
 
 (defn bot-response-complete-turn
   [game turn turn-player]

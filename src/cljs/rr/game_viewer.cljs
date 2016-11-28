@@ -89,7 +89,7 @@
 (def register-tick-ms 2000)
 
 (defmethod dispatch-event-type :game-turn-responses-received!
-  [game-state [_ [turn game-with-turn-changes]]]
+  [game-state [_ [turn game-with-turn-changes empty-turn]]]
   (if (:show-each-register? game-state)
     (do
       (go-loop [registers (rest game-with-turn-changes)
@@ -100,10 +100,11 @@
                    (async/<! (async/timeout register-tick-ms))
                    (recur (rest registers) (inc num)))
                  (dispatch! [:no-more-registers!])))
-      (assoc game-state :current-state turn))
+      (assoc game-state :current-turn turn :current-empty-turn empty-turn))
     (assoc game-state :game (last game-with-turn-changes)
                       :players-after-each-register (map game/players game-with-turn-changes)
                       :current-turn turn
+                      :current-empty-turn empty-turn
                       :waiting-for-players? false)))
 
 (defmethod dispatch-event-type :next-register!
@@ -142,12 +143,26 @@
                        (:previous-turn game-state))
         all-turns (game/turns last-game-state)
         previous-turn (get all-turns (apply max (keys all-turns)))]
+
     (assoc game-state
       :game last-game-state
       :current-turn current-turn
       :previous-turn previous-turn
+      :current-empty-turn nil
       :state-stack (butlast (:state-stack game-state))
       :waiting-for-players? false)))
+
+(defmethod dispatch-event-type :game-do-over!
+  [game-state _]
+  (let [[previous-game state-stack]
+        (if (:current-turn game-state)                      ;; just do over the last turn
+          [(last (:state-stack game-state)) (:state-stack game-state)]
+          [(last (butlast (:state-stack game-state))) (butlast (:state-stack game-state))]) ;; has cleaned up the turn...
+        next-turn-chan (runner/repeat-turn previous-game (:current-empty-turn game-state))]
+    (go (dispatch! [:game-turn-responses-received! (async/<! next-turn-chan)]))
+    (-> (assoc game-state
+          :waiting-for-players? true
+          :state-stack state-stack))))
 
 (def autoplay-tick-ms 2000)
 
@@ -216,11 +231,18 @@
                     :on-click #(dispatch! [:game-clean-up-turn!])
                     :disabled (or waiting? autoplaying?)}
          [bs/glyph {:glyph "step-forward"}] "Clean-up turn"])
+
       [bs/button {:bs-size  "small"
                   :on-click #(dispatch! [:game-try-again!])
                   :disabled (or waiting? autoplaying?
                                 (empty? (:state-stack @game-state)))}
-       [bs/glyph {:glyph "step-backward"}] "Try again"]
+       [bs/glyph {:glyph "step-backward"}] "Go back"]
+
+      [bs/button {:bs-size  "small"
+                  :on-click #(dispatch! [:game-do-over!])
+                  :disabled (or waiting? autoplaying?
+                                (nil? (:current-empty-turn @game-state)))}
+       [bs/glyph {:glyph "repeat"}] "Do-over"]
 
       (if autoplaying?
         [bs/button {:bs-size "small"
@@ -243,7 +265,7 @@
                   :bs-style :warning
                   :on-click #(dispatch! [:rematch!])
                   :disabled (or waiting? autoplaying?)}
-       [bs/glyph {:glyph "repeat"}] "Restart game"]
+       [bs/glyph {:glyph "refresh"}] "Restart game"]
       [bs/button {:bs-size  "small"
                   :bs-style :danger
                   :on-click #(dispatch! [:abandon-game!])
