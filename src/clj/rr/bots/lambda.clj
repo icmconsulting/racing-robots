@@ -69,13 +69,15 @@
     ;; Test get, then invocation
     (timbre/info "Testing whether function [" function-name "] exists...")
     (lambda/get-function aws-creds :function-name function-name)
-    (timbre/info "Function [" function-name "] exists. Testing invocation....")
+    (timbre/info "Function [" function-name "] exists. Testing null invocation....")
 
     (if-not (= 200 (:status-code (lambda/invoke aws-creds :function-name function-name :payload {})))
       (do
         (timbre/error "Invocation of function [" function-name "] failed!")
         {:result :fail :reason :lambda/function-failed-invocation})
-      {:result :pass})
+      (do
+        (timbre/info "Null invocation of function successful, permissions have been set correctly!")
+        {:result :pass}))
 
     (catch com.amazonaws.services.lambda.model.ResourceNotFoundException e
       (timbre/error e "Resource not found exception for function [" function-name "]")

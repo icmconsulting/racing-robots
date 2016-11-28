@@ -94,10 +94,15 @@
   (try
     (let [host-config (-> (HostConfig/builder) (.portBindings {"8080/tcp" [(PortBinding/randomPort "0.0.0.0")]}) (.build))
           container-creation (-> (ContainerConfig/builder) (.image image) (.hostConfig host-config) (.build))
+          _ (timbre/info "Creating container for image [" image "]...")
           container (.createContainer docker-client container-creation)
           container-id (.id container)]
+      (timbre/info "Container created for [" image "] with ID [" container-id "]")
+
       (doseq [warning (.getWarnings container)]
         (timbre/warn warning))
+
+      (timbre/info "Attempting to start container [" container-id "]...")
       (.startContainer docker-client container-id)
 
       ;; Wait until container is running
@@ -106,6 +111,8 @@
                     (not= :running (get (container-info container-id) :state)))
           (swap! counter inc)
           (Thread/sleep 100)))
+
+      (timbre/info "Waiting until host port bound to 8080 is accepting connections for container [" container-id "]...")
 
       ;; Wait until the exposed port is accepting connections
       (let [counter (atom 0)
@@ -118,12 +125,15 @@
               (Thread/sleep 100))
 
             (if (= :ready (wait-until-port-ready (:host container-info) (:port container-info)))
-              container-info
+              (do
+                (timbre/info "Container [" container-id "] for image [" image "] successfully started and is ready for connections.")
+                container-info)
               (do
                 (timbre/error "Could not connect to docker host port.")
                 {:state :fail :reason :could-not-connect})))
-
-          {:state :fail :reason :no-exposed-port})))
+          (do
+            (timbre/error "No guest port on 8080! Have you exposed it in your Dockerfile???")
+            {:state :fail :reason :no-exposed-port}))))
     (catch Throwable e
       (timbre/error e "Failed to start container for image " image)
       {:state :fail :exception (.getMessage e)})))
@@ -149,12 +159,15 @@
   [aws-creds image-id tag]
   (let [image-uri (image-identifier image-id tag)
         [messages progress-monitor] (progress-monitor)
+        _ (timbre/info "Stopping all running containers for image [" image-uri "]")
         _ (-> (running-containers-for-image image-uri) (stop-all))
         _ (-> (aws-registry-auth-data aws-creds)
               (auth-config)
               (pull-image progress-monitor image-uri))]
     (if (seq (into [] docker-error-message @messages))
-      {:result :fail :reason :docker/pull-failed :messages @messages}
+      (do
+        (timbre/error "Pull of image [" image-uri  "] failed!")
+        {:result :fail :reason :docker/pull-failed})
       (let [started-container (start-container image-uri)]
         (if (= (:state started-container) :running)
           {:result :pass}

@@ -5,7 +5,7 @@
 
 ## Tournament
 - Player submits their solution    
-    - Show logs for failed attempt
+    - Add more log messages for verification steps...
     
 - Start new tournament - randomly generate draw from registrations
 - Tournament page should have big countdown timer until submissions end

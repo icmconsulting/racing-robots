@@ -194,7 +194,7 @@
 
 (defn log-view
   []
-  [:div
+  [:div.logs
    [:pre.pre-scrollable
     (for [test (:test-results @registration-state)]
       (str
@@ -263,9 +263,7 @@
 
 (def registration-view
   (with-meta registration-view*
-             {:component-did-mount (fn [this]
-                                     (println "MOUNTING!" (last (reagent/argv this)))
-                                     (fetch-registration! (last (reagent/argv this))))}))
+             {:component-did-mount (fn [this] (fetch-registration! (last (reagent/argv this))))}))
 
 (defn registration-root
   [registration-id]

@@ -57,6 +57,7 @@
                     (bots/verify bot-instance)
                     {:result :pass})
                   (catch Throwable e
+                    (timbre/error e "Exception while verifying docker image.")
                     {:result :fail :reason :exception :messages [(.getMessage e)]}))))))
 
 (defn exec-new-game-verification
@@ -64,13 +65,19 @@
   (go
     (with-captured-logs
       (let [new-game (game/new-game [player default-other-bot] default-board)
+            _ (timbre/info "Sending new game request to bot...")
             new-game-response (try (bots/new-game (:bot-instance player) new-game)
                                    (catch Throwable e
+                                     (timbre/error e "Exception caught while sending new game request to bot!")
                                      {:exception (.getMessage e)}))]
         (merge {:test :new-game :description "Initiate a new game with your bot, and fetch your profile"}
                (if-not (= :ready (:response new-game-response))
-                 {:result :fail :data new-game-response :reason (if (:exception new-game-response) :exception :not-ready)}
-                 {:result :pass :profile (:profile new-game-response)}))))))
+                 (do
+                   (timbre/error "New game test failed as an invalid response was received from the bot!")
+                   {:result :fail :data new-game-response :reason (if (:exception new-game-response) :exception :not-ready)})
+                 (do
+                   (timbre/info "New game test passed!")
+                   {:result :pass :profile (:profile new-game-response)})))))))
 
 (defn exec-player-bot-tests
   [player-bot]
