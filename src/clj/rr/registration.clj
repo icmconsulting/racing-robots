@@ -24,6 +24,15 @@
   [teams]
   (enduro/reset! registrations (zipmap (repeatedly (comp str #(UUID/randomUUID))) teams)))
 
+(comment
+  (generate-registrations! [{:player1 "Raj" :player2 "Chaitanya"}
+                            {:player1 "Emile" :player2 "Ajeethan"}
+                            {:player1 "Helder" :player2 "Phil"}
+                            {:player1 "Yair" :player2 "Bernhard"}
+                            {:player1 "Abhijeet" :player2 "Nelson"}
+                            {:player1 "Robert" :player2 "John"}
+                            {:player1 "Conrad" :player2 "?"}]))
+
 ;; TODO: generate player registrations from team entries
 ;; - Generates URLs - will slack manually to teams
 
@@ -128,6 +137,7 @@
     (resp/not-found {})))
 
 (defroutes registration-routes*
+           (GET "/" [] (resp/response {:registrations @registrations}))
            (context "/:registration-id" [registration-id]
              (registration-id-routes registration-id)))
 

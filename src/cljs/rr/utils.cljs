@@ -19,3 +19,9 @@
       (aget 0)
       (.-dataset)
       (.-csrf)))
+
+(defn truncate-name
+  [max-size name]
+  (if (< max-size (count name))
+    (str (subs name 0 (- max-size 3)) "...")
+    name))

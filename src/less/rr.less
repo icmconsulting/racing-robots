@@ -498,6 +498,61 @@ button, input, select {
 
       }
     }
+
+    .all-registrations-root {
+      margin-top: 1em;
+
+      .all-registrations-middle {
+        .board-view-container();
+
+        .all-registrations-gallery {
+          max-width: 65%;
+
+          .panel-body {
+            display: flex;
+            align-items: center;
+            flex-direction: row;
+            flex-wrap: wrap;
+
+            .registration {
+              width: 20em;
+              height: 30em;
+              margin: 1em;
+
+              font-size: 0.8em;
+
+              small {
+                display: block;
+              }
+              img {
+                max-width: 11em;
+              }
+
+              background-repeat: no-repeat;
+              background-position: bottom right;
+              background-size: 10em;
+              background-origin: padding-box;
+
+              &.pending-registration {
+                opacity: 0.5;
+              }
+
+              &.docker-registration {
+                background-image: url('../images/docker.png');
+              }
+
+              &.lambda-registration {
+                background-image: url('../images/aws-lambda.png');
+              }
+            }
+          }
+
+        }
+
+      }
+
+    }
+
   }
 }
 

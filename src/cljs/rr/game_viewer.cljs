@@ -11,7 +11,7 @@
             [rr.logger :as logger]
             [rr.game :as game]
             [rr.runner :as runner]
-            [rr.utils :refer [image-obj player-short-id]]
+            [rr.utils :refer [image-obj player-short-id truncate-name]]
             [taoensso.timbre :as timbre])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
@@ -666,12 +666,6 @@
 
 (def max-robot-name-size 18)
 (def max-player-team-name-size 40)
-
-(defn truncate-name
-  [max-size name]
-  (if (< max-size (count name))
-    (str (subs name 0 (- max-size 3)) "...")
-    name))
 
 (defn player-score-sheet
   [player-num position]

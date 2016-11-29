@@ -8,7 +8,7 @@
             [rr.bots :as bots]
             [rr.game :as game]
             [rr.runner :as runner]
-            [rr.utils :refer [ascii-title csrf-token player-short-id]])
+            [rr.utils :refer [ascii-title csrf-token player-short-id truncate-name]])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (defonce registration-state (atom {:waiting? true}))
@@ -16,8 +16,10 @@
 (defmulti dispatch-event-type (fn [_ event] (first event)))
 
 (defn dispatch!
-  [event]
-  (reagent/rswap! registration-state dispatch-event-type event))
+  ([event]
+   (dispatch! registration-state event))
+  ([a event]
+   (reagent/rswap! a dispatch-event-type event)))
 
 (defn fetch-registration!
   [registration-id]
@@ -140,9 +142,13 @@
   [registration-state _]
   (update registration-state :logs? not))
 
+(defn profile
+  [reg]
+  (:profile (first (filter :profile (:test-results reg)))))
+
 (defn profile-view
   []
-  (let [profile (:profile (first (filter :profile (:test-results @registration-state))))]
+  (let [profile (profile @registration-state)]
     [:div
      [:h3.player-name
       [:span.player-images
@@ -268,3 +274,90 @@
 (defn registration-root
   [registration-id]
   [registration-view registration-id])
+
+
+(defonce all-registrations-state (atom {:waiting? true}))
+
+(defn fetch-all-registrations!
+  []
+  (GET (str "/registrations")
+       {:handler #(dispatch! all-registrations-state [:all-registrations (:registrations %)])
+        :error-handler #(dispatch! all-registrations-state [:error-all-registration %])}))
+
+(defmethod dispatch-event-type :all-registrations
+  [_ [_ registrations]]
+  registrations)
+
+(defmethod dispatch-event-type :error-all-registrations
+  [_ [_ error]]
+  {:error error})
+
+(def unknown-registration-avatar "/public/images/unknown-registration.jpg")
+
+(defmulti registrations-thumb (comp :connection-type val))
+
+(defn players-names
+  [reg]
+  (clojure.string/join " and " (filter identity [(:player1 reg) (:player2 reg)])))
+
+(defmethod registrations-thumb :docker
+  [[id reg]]
+  (let [profile (profile reg)]
+    [bs/thumbnail {:src (:avatar profile) :alt (:name profile) :class "docker-registration registration" :key id}
+     [:h3 (truncate-name 40 (:name profile)) [:small (players-names reg)]]
+     [:dl
+      [:dt "Robot name"] [:dd (:robot-name profile)]
+      [:dt "Image"] [:dd (:image-id reg) ":" (:tag reg)]]]))
+
+(defmethod registrations-thumb :lambda
+  [[id reg]]
+  (let [profile (profile reg)]
+    [bs/thumbnail {:src (:avatar profile) :alt (:name profile) :class "lambda-registration registration" :key id}
+     [:h3 (truncate-name 40 (:name profile)) [:small (players-names reg)]]
+     [:dl
+      [:dt "Robot name"] [:dd (:robot-name profile)]
+      [:dt "Function name"] [:dd (:lambda-function-name reg)]]]))
+
+(defmethod registrations-thumb :default
+  [[id reg]]
+  (let [profile-name (players-names reg)]
+    [bs/thumbnail {:src unknown-registration-avatar :alt profile-name :class "pending-registration registration" :key id}
+     [:h3 profile-name]
+     [:p "Pending registration..."]]))
+
+(defn registrations-gallery
+  []
+  [bs/panel {:class "all-registrations-gallery" :header "Hackathon Competitors"}
+   (map registrations-thumb @all-registrations-state)])
+
+(defn all-registration-loading
+  []
+  [bs/panel {:class "pulse"}
+   [:h3 "Fetching registrations..."]])
+
+(defn all-registrations-middle-section
+  []
+  [:div.all-registrations-middle
+   (cond
+     (:waiting? @all-registrations-state)
+     [all-registration-loading]
+
+     (:error @all-registrations-state)
+     [bs/alert {:bs-style "warning"}
+      [:h3 [bs/glyph {:glyph "warning-sign"}] " Registrations Fetch Error"]
+      [:div [:p "Error while fetching registrations"]]]
+
+     :else
+     [registrations-gallery])])
+
+(defn registrations-view*
+  []
+  [:section.all-registrations-root
+   [:section.left]
+   [all-registrations-middle-section]
+   [:section.right]])
+
+(def registrations-view
+  (with-meta registrations-view* {:component-did-mount fetch-all-registrations!}))
+
+(defn registrations-root [] [registrations-view])

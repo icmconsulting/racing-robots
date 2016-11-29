@@ -18,6 +18,8 @@
               (keyword))
       :test-harness))
 
+(def tournament? (= :tournament mode))
+
 ;; -------------------------
 ;; Routes
 
@@ -34,8 +36,13 @@
   (session/put! :current-page (partial #'board-browser/board-browser-root (keyword id))))
 
 ;; Registration routes
-(secretary/defroute registration-id-route "/registration/:id" {id :id}
-  (session/put! :current-page (partial #'registration/registration-root id)))
+(when tournament?
+  (secretary/defroute registration-id-route "/registration/:id" {id :id}
+    (session/put! :current-page (partial #'registration/registration-root id))))
+
+(when tournament?
+  (secretary/defroute registration-route "/registration" []
+    (session/put! :current-page #'registration/registrations-root)))
 
 
 

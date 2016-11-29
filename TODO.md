@@ -4,7 +4,6 @@
 - Add new boards - need board for grand final
 
 # Game viewer
-- Docker image bot type
 - Damage increase increses intensity of damage counter
 
 ## Tournament    
