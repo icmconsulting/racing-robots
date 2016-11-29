@@ -295,7 +295,7 @@
   [game-state [_ player-num selected-player-type]]
   (-> game-state
       (assoc-in [:new-game :players player-num :player-type] (keyword selected-player-type))
-      (update-in [:new-game :players player-num] dissoc :connection-type :port :lambda-function-name)))
+      (update-in [:new-game :players player-num] dissoc :connection-type :port :lambda-function-name :image-id :tag)))
 
 (defmethod dispatch-event-type :player-connection-change
   [game-state [_ player-num connection-type]]
@@ -316,6 +316,18 @@
   (if-not (clojure.string/blank? function-name)
     (assoc-in game-state [:new-game :players player-num :lambda-function-name] function-name)
     (update-in game-state [:new-game :players player-num] dissoc :lambda-function-name)))
+
+(defmethod dispatch-event-type :player-connection-image
+  [game-state [_ player-num image]]
+  (if-not (clojure.string/blank? image)
+    (assoc-in game-state [:new-game :players player-num :image-id] image)
+    (update-in game-state [:new-game :players player-num] dissoc :image-id)))
+
+(defmethod dispatch-event-type :player-connection-tag
+  [game-state [_ player-num tag]]
+  (if-not (clojure.string/blank? tag)
+    (assoc-in game-state [:new-game :players player-num :tag] tag)
+    (update-in game-state [:new-game :players player-num] dissoc :tag)))
 
 (defn apply-player-bot
   [player bot-image]
@@ -381,6 +393,22 @@
                      :on-change #(dispatch! [:player-connection-function-name player-num (-> % .-target .-value)])}]
    [bs/help-block "NOT the fully qualified ARN - just the function name"]])
 
+(defn docker-image-input
+  [player-num]
+  [bs/form-group
+   [bs/control-label "docker image"]
+   [bs/input-group
+    [bs/form-control {:type        :text
+                      :placeholder "image"
+                      :value       (:image-id (new-game-player-by-number @game-state player-num) "")
+                      :on-change   #(dispatch! [:player-connection-image player-num (-> % .-target .-value)])}]
+    [bs/input-group-addon
+     ":"]]
+   [bs/form-control {:type        :text
+                     :placeholder "tag"
+                     :value       (:tag (new-game-player-by-number @game-state player-num) "")
+                     :on-change   #(dispatch! [:player-connection-tag player-num (-> % .-target .-value)])}]])
+
 (defn player-type-selection
   [player-num]
   [:div.player-selection
@@ -402,10 +430,15 @@
        [bs/well
         [bs/form-group
          [bs/control-label "Connection type"]
-         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :http])} "HTTP/REST"]
+         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :http])
+                    :checked (= :http (:connection-type new-game-player))} "HTTP/REST"]
          (when (= :http (:connection-type new-game-player)) [port-number-input player-num])
-         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :lambda])} "AWS Lambda"]]
-        (when (= :lambda (:connection-type new-game-player)) [lambda-function-name-input player-num])]
+         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :lambda])
+                    :checked (= :lambda (:connection-type new-game-player))} "AWS Lambda"]
+         (when (= :lambda (:connection-type new-game-player)) [lambda-function-name-input player-num])
+         [bs/radio {:name "connection" :on-change #(dispatch! [:player-connection-change player-num :docker])
+                    :checked (= :docker (:connection-type new-game-player))} "Docker"]
+         (when (= :docker (:connection-type new-game-player)) [docker-image-input player-num])]]
 
        ((set (keys bots/local-bots)) (:player-type new-game-player))
        (let [bot ((bots/local-bots (:player-type new-game-player)))]
@@ -416,12 +449,15 @@
   (let [{:keys [players]} new-game
         player-players (filter #(= :player (:player-type %)) players)
         http-players (filter #(= :http (:connection-type %)) players)
-        lambda-players (filter #(= :lambda (:connection-type %)) players)]
+        lambda-players (filter #(= :lambda (:connection-type %)) players)
+        docker-players (filter #(= :docker (:connection-type %)) players)]
     (and
       (every? :player-type players)
       (every? :connection-type player-players)
       (every? :port http-players)
-      (every? :lambda-function-name lambda-players))))
+      (every? :lambda-function-name lambda-players)
+      (every? :image-id docker-players)
+      (every? :tag docker-players))))
 
 (defn board-selection
   []
