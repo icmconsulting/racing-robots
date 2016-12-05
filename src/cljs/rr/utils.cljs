@@ -25,3 +25,7 @@
   (if (< max-size (count name))
     (str (subs name 0 (- max-size 3)) "...")
     name))
+
+(defn players-names
+  [reg]
+  (clojure.string/join " and " (filter identity [(:player1 reg) (:player2 reg)])))

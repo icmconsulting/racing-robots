@@ -137,7 +137,8 @@
     (resp/not-found {})))
 
 (defroutes registration-routes*
-           (GET "/" [] (resp/response {:registrations @registrations}))
+           (GET "/" [] (resp/response {:registrations (zipmap (map #(subs % 0 8) (keys @registrations))
+                                                              (vals @registrations))}))
            (context "/:registration-id" [registration-id]
              (registration-id-routes registration-id)))
 

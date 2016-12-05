@@ -1,15 +1,12 @@
 # TODO
 
-## Boards
-- Add new boards - need board for grand final
-
-# Game viewer
-- Damage increase increses intensity of damage counter
-
-## Tournament    
-- Make sure no one submits an example bot
+## Tournament
 - Start game from registration bots
+- Make sure no one submits an example bot
+- Make sure no one submits the same bot
 
+## Boards
+- Add new 1 new board
 
 - Start new tournament - randomly generate draw from registrations
 - Tournament page should have big countdown timer until submissions end
@@ -21,3 +18,5 @@
 - Sample implementations
 - Test harness build + instructions
 
+# Game viewer
+- Damage increase increses intensity of damage counter

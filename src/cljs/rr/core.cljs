@@ -23,11 +23,16 @@
 ;; -------------------------
 ;; Routes
 
+(def game-viewer-root
+  (if tournament?
+    #'game-viewer/tournament-game-viewer-root
+    #'game-viewer/harness-game-viewer-root))
+
 (secretary/defroute root-route "/" []
-  (session/put! :current-page #'game-viewer/game-viewer-root))
+  (session/put! :current-page game-viewer-root))
 
 (secretary/defroute new-game-route "/newgame" []
-  (session/put! :current-page #'game-viewer/game-viewer-root))
+  (session/put! :current-page game-viewer-root))
 
 (secretary/defroute boards-route "/boards" []
   (session/put! :current-page #'board-browser/board-browser-root))

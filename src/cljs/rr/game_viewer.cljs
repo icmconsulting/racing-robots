@@ -3,15 +3,17 @@
             [reagent.session :as session]
             [taoensso.timbre :refer [debug info warn]]
             [cljs.core.async :as async]
+            [ajax.core :refer [GET]]
             [rr.ajax-bot :as ajax-bot]
             [rr.bs :as bs]
             [rr.bots :as bots]
             [rr.boards :as boards]
             [rr.board-viewer :refer [board-view board-parent-resize-props]]
+            [rr.registration :refer [profile profile-view]]
             [rr.logger :as logger]
             [rr.game :as game]
             [rr.runner :as runner]
-            [rr.utils :refer [image-obj player-short-id truncate-name]]
+            [rr.utils :refer [image-obj player-short-id truncate-name players-names]]
             [taoensso.timbre :as timbre])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
@@ -342,7 +344,7 @@
 
 (defmethod dispatch-event-type :start-game!
   [game-state _]
-  (let [players (map apply-player-bot (get-in game-state [:new-game :players]) (shuffle all-bot-images))
+  (let [players (map apply-player-bot (remove empty? (get-in game-state [:new-game :players])) (shuffle all-bot-images))
         board (kw->board (get-in game-state [:new-game :board]))
         game-ch (runner/start-new-game {:players players :board (:board board)})
         game-params (select-keys (:new-game game-state) [:players :board])]
@@ -472,7 +474,7 @@
       ^{:key (name board-key)}
       [:option {:value board-key} (name board-key)])]])
 
-(defn start-new-game-root
+(defn start-new-harness-game-root
   []
   [bs/panel {:class "new-game-root" :header "select robotic parameters"}
    [:form
@@ -486,6 +488,67 @@
                 :bs-style :primary
                 :disabled (not (new-game-ready-to-start? @game-state))
                 :on-click #(dispatch! [:start-game!])} "Get Racin'"]]])
+
+(defmethod dispatch-event-type :registration-change
+  [game-state [_ player-num registration-id]]
+  (assoc-in game-state [:new-game :players player-num]
+            (assoc (get-in game-state [:new-game :registrations registration-id]) :player-type :player)))
+
+(defn registration-selection
+  [player-num]
+  [:div.player-selection
+   [bs/form-group
+    [bs/control-label (str "player " (inc player-num))]
+    [bs/form-control {:component-class "select"
+                      :placeholder     "select player"
+                      :default-value   (name (:player-type (new-game-player-by-number @game-state player-num) ""))
+                      :on-change       #(dispatch! [:registration-change player-num (-> % .-target .-value)])}
+     [:option {:disabled true :value ""} "select a player"]
+     [:option {:value "EMPTY"} "---Empty slot---"]
+     (for [[id registration] (get-in @game-state [:new-game :registrations])
+           :when (:connection-type registration)]
+       (let [player-name (players-names registration)]
+         ^{:key id}
+         [:option {:value id} player-name]))]]
+   (let [new-game-player (new-game-player-by-number @game-state player-num)]
+     (when (seq new-game-player)
+       [:div.selected-registration-profile
+        [profile-view (profile new-game-player)]]))])
+
+(defn tournament-game-ready-to-start?
+  [{:keys [new-game]}]
+  (let [{:keys [players]} new-game
+        players (remove empty? players)]
+    (<= 2 (count players))))
+
+(defn start-new-tournament-game-root*
+  []
+  [bs/panel {:class "new-game-root" :header "select tournametric parameters"}
+   [:form
+    (for [player-num (range 0 4)]
+      ^{:key player-num}
+      [registration-selection player-num])
+
+    [board-selection]
+
+    [bs/button {:bs-size :large
+                :bs-style :primary
+                :disabled (not (tournament-game-ready-to-start? @game-state))
+                :on-click #(dispatch! [:start-game!])} "Get Racin'"]]])
+
+(defmethod dispatch-event-type :all-registrations
+  [game-state [_ registrations]]
+  (assoc-in game-state [:new-game :registrations] registrations))
+
+(defn fetch-all-registrations!
+  []
+  (GET "/registrations"
+       {:handler #(dispatch! [:all-registrations (:registrations %)])
+        :error-handler #(dispatch! [:error-all-registration %])}))
+
+(def start-new-tournament-game-root 
+  (with-meta start-new-tournament-game-root*
+             {:component-will-mount fetch-all-registrations!}))
 
 (defn game-not-started?
   [game]
@@ -603,11 +666,11 @@
        [:h3 "Waiting for players..."])]))
 
 (defn game-viewer-middle-section*
-  []
+  [player-select-view]
   [:section.middle
     (cond
       (game-waiting-for-ready? @game-state) [waiting-for-ready-root @game-state]
-      (game-not-started? @game-state) [start-new-game-root]
+      (game-not-started? @game-state) [player-select-view]
       (game-finished? @game-state) [game-over-root]
       :else [game-root])])
 
@@ -669,28 +732,32 @@
 
 (defn player-score-sheet
   [player-num position]
-  (let [{:keys [name avatar robot robot-image id] :as player} (nth (game/players (:game @game-state)) player-num)
-        powered-down? (:powered-down? robot)
-        dead? (= :dead (:state player))]
-    [:div.player-score-sheet {:class (clojure.string/join " " [(clojure.core/name position)
-                                                               (get player-colours player-num)
-                                                               (when dead? "player-dead")])}
-     (into [:div
-            [:h3.player-name
-             [:span.player-images
-              [:span
-               [:img {:src avatar :alt name}]]
-              [:span
-               [:img {:src (.-src robot-image) :alt name}]]]
-             [:span.full-name
-              [:span.robot-name (truncate-name max-robot-name-size (:robot-name player))]
-              [:span.team-name (truncate-name max-player-team-name-size name)]
-              [:span.player-id (player-short-id player)]]]]
-           (if-not dead?
-             [[robot-active-scores robot]
-              [registers-view player]]
-             [[:div
-               [:h4 "game over"]]]))]))
+  (if-let [player (get (vec (game/players (:game @game-state))) player-num)]
+    (let [{:keys [name avatar robot robot-image id]} player
+          powered-down? (:powered-down? robot)
+          dead? (= :dead (:state player))]
+      [:div.player-score-sheet {:class (clojure.string/join " " [(clojure.core/name position)
+                                                                 (get player-colours player-num)
+                                                                 (when dead? "player-dead")])}
+       (into [:div
+              [:h3.player-name
+               [:span.player-images
+                [:span
+                 [:img {:src avatar :alt name}]]
+                [:span
+                 [:img {:src (.-src robot-image) :alt name}]]]
+               [:span.full-name
+                [:span.robot-name (truncate-name max-robot-name-size (:robot-name player))]
+                [:span.team-name (truncate-name max-player-team-name-size name)]
+                [:span.player-id (player-short-id player)]]]]
+             (if-not dead?
+               [[robot-active-scores robot]
+                [registers-view player]]
+               [[:div
+                 [:h4 "game over"]]]))])
+
+    [:div.player-score-sheet.player-dead
+     [:h3.player-name "--- Empty Slot ---"]]))
 
 (defn right-player-score-board
   []
@@ -720,8 +787,14 @@
      (when (:game @game-state)
        [right-player-score-board])]))
 
-(defn game-viewer-root []
+(defn harness-game-viewer-root []
   [:section.game-viewer-root
    [game-viewer-left-section]
-   [game-viewer-middle-section]
+   [game-viewer-middle-section start-new-harness-game-root]
+   [game-viewer-right-section]])
+
+(defn tournament-game-viewer-root []
+  [:section.game-viewer-root
+   [game-viewer-left-section]
+   [game-viewer-middle-section start-new-tournament-game-root]
    [game-viewer-right-section]])

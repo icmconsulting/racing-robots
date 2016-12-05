@@ -1,14 +1,9 @@
 (ns rr.registration
   (:require [reagent.core :as reagent :refer [atom cursor]]
-            [reagent.session :as session]
             [taoensso.timbre :refer [debug info warn error]]
-            [cljs.core.async :as async]
             [ajax.core :refer [GET PUT]]
             [rr.bs :as bs]
-            [rr.bots :as bots]
-            [rr.game :as game]
-            [rr.runner :as runner]
-            [rr.utils :refer [ascii-title csrf-token player-short-id truncate-name]])
+            [rr.utils :refer [ascii-title csrf-token player-short-id truncate-name players-names]])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (defonce registration-state (atom {:waiting? true}))
@@ -147,16 +142,15 @@
   (:profile (first (filter :profile (:test-results reg)))))
 
 (defn profile-view
-  []
-  (let [profile (profile @registration-state)]
-    [:div
-     [:h3.player-name
-      [:span.player-images
-       [:span
-        [:img {:src (:avatar profile) :alt name}]]]
-      [:span.full-name
-       [:span.robot-name (:robot-name profile)]
-       [:span.team-name (:name profile)]]]]))
+  [profile]
+  [:div
+   [:h3.player-name
+    [:span.player-images
+     [:span
+      [:img {:src (:avatar profile) :alt (:name profile)}]]]
+    [:span.full-name
+     [:span.robot-name (:robot-name profile)]
+     [:span.team-name (:name profile)]]]])
 
 (defn registration-form-buttons
   []
@@ -231,7 +225,7 @@
           (= :saved (:result @registration-state))
           [bs/alert {:bs-style :success}
            [:p [:strong "Registration successful!"]]
-           [profile-view]
+           [profile-view (profile @registration-state)]
            (case (:connection-type @registration-state)
              :docker
              [:p [:strong "Note! "] "You will need to" [:strong " resubmit your registration again "] "if/when you push a new version of your docker image."]
@@ -296,9 +290,7 @@
 
 (defmulti registrations-thumb (comp :connection-type val))
 
-(defn players-names
-  [reg]
-  (clojure.string/join " and " (filter identity [(:player1 reg) (:player2 reg)])))
+
 
 (defmethod registrations-thumb :docker
   [[id reg]]
