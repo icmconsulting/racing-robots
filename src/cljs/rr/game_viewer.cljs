@@ -217,7 +217,7 @@
   (update state :show-each-register? not))
 
 (defn game-controller-panel
-  []
+  [test-options?]
   (let [waiting? (:waiting-for-players? @game-state)
         autoplaying? (:autoplay? @game-state)
         show-each-register? (true? (:show-each-register? @game-state))]
@@ -234,17 +234,19 @@
                     :disabled (or waiting? autoplaying?)}
          [bs/glyph {:glyph "step-forward"}] "Clean-up turn"])
 
-      [bs/button {:bs-size  "small"
-                  :on-click #(dispatch! [:game-try-again!])
-                  :disabled (or waiting? autoplaying?
-                                (empty? (:state-stack @game-state)))}
-       [bs/glyph {:glyph "step-backward"}] "Go back"]
+      (when test-options?
+        [bs/button {:bs-size  "small"
+                    :on-click #(dispatch! [:game-try-again!])
+                    :disabled (or waiting? autoplaying?
+                                  (empty? (:state-stack @game-state)))}
+         [bs/glyph {:glyph "step-backward"}] "Go back"])
 
-      [bs/button {:bs-size  "small"
-                  :on-click #(dispatch! [:game-do-over!])
-                  :disabled (or waiting? autoplaying?
-                                (nil? (:current-empty-turn @game-state)))}
-       [bs/glyph {:glyph "repeat"}] "Do-over"]
+      (when test-options?
+        [bs/button {:bs-size  "small"
+                    :on-click #(dispatch! [:game-do-over!])
+                    :disabled (or waiting? autoplaying?
+                                  (nil? (:current-empty-turn @game-state)))}
+         [bs/glyph {:glyph "repeat"}] "Do-over"])
 
       (if autoplaying?
         [bs/button {:bs-size "small"
@@ -283,10 +285,11 @@
      (get-in data k)))
   ([k v] (throw (ex-info "Don't change the game cursor, goddamit!" {:tried-to-change [k v]}))))
 
-(defn game-root* []
+(defn game-root*
+  [test-mode?]
   [:div#game-board
    [:div [board-view (cursor game-data-cursor [])]]
-   [game-controller-panel]])
+   [game-controller-panel test-mode?]])
 
 (def game-root
   (with-meta game-root*
@@ -666,13 +669,13 @@
        [:h3 "Waiting for players..."])]))
 
 (defn game-viewer-middle-section*
-  [player-select-view]
+  [player-select-view test-mode?]
   [:section.middle
     (cond
       (game-waiting-for-ready? @game-state) [waiting-for-ready-root @game-state]
       (game-not-started? @game-state) [player-select-view]
       (game-finished? @game-state) [game-over-root]
-      :else [game-root])])
+      :else [game-root test-mode?])])
 
 (def game-viewer-middle-section (with-meta game-viewer-middle-section* board-parent-resize-props))
 
@@ -790,11 +793,11 @@
 (defn harness-game-viewer-root []
   [:section.game-viewer-root
    [game-viewer-left-section]
-   [game-viewer-middle-section start-new-harness-game-root]
+   [game-viewer-middle-section start-new-harness-game-root true]
    [game-viewer-right-section]])
 
 (defn tournament-game-viewer-root []
   [:section.game-viewer-root
    [game-viewer-left-section]
-   [game-viewer-middle-section start-new-tournament-game-root]
+   [game-viewer-middle-section start-new-tournament-game-root false]
    [game-viewer-right-section]])
