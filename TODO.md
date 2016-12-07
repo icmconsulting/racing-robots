@@ -1,7 +1,6 @@
 # TODO
 
 ## Tournament
-- Start game from registration bots
 - Make sure no one submits an example bot
 - Make sure no one submits the same bot
 
@@ -19,4 +18,4 @@
 - Test harness build + instructions
 
 # Game viewer
-- Damage increase increses intensity of damage counter
+- Damage increase increases intensity of damage counter

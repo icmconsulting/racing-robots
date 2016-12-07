@@ -411,7 +411,6 @@
 
 (defn player-score
   [{:keys [robot] :as player}]
-  (println (* (count (:flags robot)) 100) (* (:lives robot) 25) (num-player-turns player) (num-times-powered-down player))
   (+
     (* (count (:flags robot)) 100)
     (* (:lives robot) 25)

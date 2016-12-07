@@ -13,7 +13,7 @@
             [rr.game :as game])
   (:import [java.util UUID]))
 
-(def empty-registrations {:players {}})
+(def empty-registrations {})
 
 (defonce registrations
   (if-let [reg-file (env :reg-file)]
