@@ -100,7 +100,6 @@
       [(concat [(walls :west) (belt :north) (exp-belt :north)] (repeat 8 (exp-belt :west)) [(walls :east)])]
       [(concat [(belt :east) (belt :north)] (repeat 9 (belt :west)) [blank])]
       [(concat [(walls :west) blank (walls :south) blank (walls :south) (belt :south) (belt :north) (walls :south) blank (walls :south) (belt :north) (rep)])]
-
       easy-docking-bay-board)))
 
 (def all-available-boards

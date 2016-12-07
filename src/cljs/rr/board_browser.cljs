@@ -18,9 +18,10 @@
 
 (defn selected-board-view
   [selected-board]
-  (if @selected-board
-    [board-view selected-board]
-    [:div.no-board-selected [:p "Select a board to view from the board list on the left."]]))
+  (cond
+    (and @selected-board (:tournament-only? @selected-board)) [:div [:img {:src "/images/mystery-board.png" :alt "What could it be?"}]]
+    @selected-board [board-view selected-board]
+    :else [:div.no-board-selected [:p "Select a board to view from the board list on the left."]]))
 
 (defn middle-section*
   [selected-board]
@@ -50,7 +51,7 @@
                       (when-let [pit (:pit square)]
                         [[:dt "Pit"] [:dd (rand-nth ["Certain death" "Try it" "An abyss" "The dark expanse is tempting. Try me."
                                                      "Seems like it goes on forever" "Like I like my Saturday Cartoons...dark"])]])
-                      (when-let [repair (:repair square)]
+                      (when (:repair square)
                         [[:dt "Repair stop"] [:dd "Juice up here"]
                          [:dt "Archive marker compatable?"] [:dd "Yes"]])))
         [:p "Board Square Inspector: click a square on the board to see attributes of a square"]))))
@@ -58,10 +59,11 @@
 (defn board-browser-root
   [id?]
   (let [selected-board (atom (when id?
-                               {:id          id?
-                                :board       (:board (get boards/all-available-boards id?))
-                                :container-id "board-section"
-                                :highlighted nil}))]
+                               (merge
+                                 (select-keys (get boards/all-available-boards id?) [:board :tournament-only?])
+                                 {:id           id?
+                                  :container-id "board-section"
+                                  :highlighted  nil})))]
     (fn [_]
       [:section.board-browser-root
        [:section.left [board-list selected-board]]

@@ -465,7 +465,7 @@
       (every? :tag docker-players))))
 
 (defn board-selection
-  []
+  [boards]
   [bs/form-group {:class "board-selection"}
    [bs/control-label "board"]
    [bs/form-control {:component-class "select"
@@ -473,7 +473,7 @@
                      :default-value   (name (get-in @game-state [:new-game :board] ""))
                      :on-change       #(dispatch! [:board-change (-> % .-target .-value)])}
     [:option {:value "random"} "give me a random one"]
-    (for [[board-key _] boards/all-available-boards]
+    (for [[board-key _] boards]
       ^{:key (name board-key)}
       [:option {:value board-key} (name board-key)])]])
 
@@ -485,7 +485,7 @@
       ^{:key player-num}
       [player-type-selection player-num])
 
-    [board-selection]
+    [board-selection (into {} (remove (comp :tournament-only? val) boards/all-available-boards))]
 
     [bs/button {:bs-size :large
                 :bs-style :primary
@@ -532,7 +532,7 @@
       ^{:key player-num}
       [registration-selection player-num])
 
-    [board-selection]
+    [board-selection (into {} (remove (comp :test-only? val) boards/all-available-boards))]
 
     [bs/button {:bs-size :large
                 :bs-style :primary
