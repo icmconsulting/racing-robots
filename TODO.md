@@ -16,6 +16,3 @@
 - Rules
 - Sample implementations
 - Test harness build + instructions
-
-# Game viewer
-- Damage increase increases intensity of damage counter

@@ -88,7 +88,7 @@
     (-> (assoc game-state :waiting-for-players? true)
         (push-game-state (:game game-state)))))
 
-(def register-tick-ms 2000)
+(def register-tick-ms 1500)
 
 (defmethod dispatch-event-type :game-turn-responses-received!
   [game-state [_ [turn game-with-turn-changes empty-turn]]]

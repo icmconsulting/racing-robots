@@ -85,6 +85,24 @@
       [[(dock 3) blank (-> (dock 1) (game/with-walls :west)) blank blank (-> (dock 2) (game/with-walls :east)) blank (dock 4)]])))
 
 
+(def grand-final-torture-pit
+  (game/->RRSeqBoard
+    (concat
+      [[(rep) (exp-belt :south) (walls :north) blank (walls :north) (exp-belt :south) blank (walls :north) (flag 1) (walls :north) blank blank]]
+      [(concat [blank] (repeat 9 (exp-belt :east)) [(exp-belt :south) (exp-belt :west)])]
+      [(concat [(walls :west)] (repeat 8 (belt :east)) [(belt :south) (exp-belt :south) (walls :east)])]
+      [(concat [blank (belt :north)] (repeat 3 (exp-belt :east)) [(-> (laser :north 1) (game/with-belt :east true)) (exp-belt :east) (exp-belt :east) (exp-belt :south) (belt :south) (exp-belt :south) (rep)])]
+      [(concat [(walls :west) (belt :north) (exp-belt :north)] (repeat 3 (belt :east)) [(-> (laser :north 1) (game/with-belt :east)) (belt :south) (exp-belt :south) (belt :south) (exp-belt :south) (walls :east)])]
+      [[(flag 2) (belt :north) (exp-belt :north) (belt :north) (-> (walls :west) (game/with-belt :east true)) (pit) (pit) (belt :south) (-> (laser :east 1) (game/with-belt :south true)) (belt :south) (exp-belt :south) (exp-belt :west)]]
+      [[(belt :east) (belt :north) (exp-belt :north) (-> (walls :west) (game/with-belt :north)) (exp-belt :north) (pit) (pit) (-> (laser :east 1) (game/with-belt :west)) (exp-belt :south) (belt :south) (exp-belt :south) (belt :east) ] ]
+      [[(walls :west) (belt :north) (exp-belt :north) (belt :north) (exp-belt :north) (-> (walls :south) (game/with-belt :west true)) (exp-belt :west) (exp-belt :west) (exp-belt :west) (belt :south) (exp-belt :south) (walls :east)]]
+      [(concat [(rep) (belt :north) (exp-belt :north) (belt :north)] (repeat 2 (belt :west)) [(-> (walls :south) (game/with-belt :west))] (repeat 3 (belt :west)) [(exp-belt :south) blank])]
+      [(concat [(walls :west) (belt :north) (exp-belt :north)] (repeat 8 (exp-belt :west)) [(walls :east)])]
+      [(concat [(belt :east) (belt :north)] (repeat 9 (belt :west)) [blank])]
+      [(concat [(walls :west) blank (walls :south) blank (walls :south) (belt :south) (belt :north) (walls :south) blank (walls :south) (belt :north) (rep)])]
+
+      easy-docking-bay-board)))
+
 (def all-available-boards
   {;; test harness only boards
    :proving-grounds     {:board       proving-grounds
@@ -103,7 +121,10 @@
                          :key         :chop-shop-challenge
                          :description "Great risk, great reward"}
 
-   })
+   :grand-final-torture-pit {:board grand-final-torture-pit
+                             :key :grand-final-torture-pit
+                             :description "Pity all those that make it this far."
+                             :tournament-only? true}})
 
 (defn board-from-board
   [board]
