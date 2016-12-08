@@ -212,9 +212,11 @@
                               ;; move the robot
                               (or (not express-only?) (and express-only? express))
                               [{:position  position-after-belt
-                                :direction (if-let [[new-belt-direction] (:belt square-after-belt)]
-                                             new-belt-direction
-                                             direction)} :belt/moved-by-belt])]
+                                :direction (if-let [[new-belt-direction] (:belt square-after-belt)] ;; new square is a belt
+                                             (if (not= new-belt-direction belt-direction) ;; change in belt direction
+                                               new-belt-direction direction)
+                                             direction)}
+                               :belt/moved-by-belt])]
       (cond->
         (merge robot new-attrs)
         event (add-robot-event event)))
@@ -224,7 +226,8 @@
   [{:keys [players board] :as state} express-only?]
   (let [new-player-pos (map (juxt :id (comp (partial apply-belt-movement board express-only?) :robot)) players)]
     (reduce (fn [state [player-id {:keys [position] :as robot}]]
-              (if (and (some? position) (< 1 (count (filter #(= position (:position (second %))) new-player-pos))))
+              (if (and (some? position)
+                       (< 1 (count (filter #(= position (:position (second %))) new-player-pos))))
                 state
                 (setval (player-robot-path player-id) robot state)))
             state new-player-pos)))
