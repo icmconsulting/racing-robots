@@ -15,6 +15,8 @@
 
 (def empty-registrations {})
 
+(defonce accepting-registrations? (atom true))
+
 (defonce registrations
   (if-let [reg-file (env :reg-file)]
     (enduro/file-atom empty-registrations reg-file)
@@ -88,13 +90,29 @@
                    (timbre/info "New game test passed!")
                    {:result :pass :profile (:profile new-game-response)})))))))
 
+(defn exec-unique-bot-verification
+  [player-bot]
+  (go
+    (with-captured-logs
+      (let [other-bots (dissoc @registrations (:registration-id player-bot))
+            bot-props-fn #(select-keys % [:lambda-function-name :image-id :tag])]
+        (merge {:test :unqiue :description "No one else has submitted the same bot."}
+               (if-let [other (seq (filter #(= (bot-props-fn (val %)) (bot-props-fn player-bot)) other-bots))]
+                 (do
+                   (timbre/warn "Another bot is already registered with " (bot-props-fn player-bot) "!")
+                   {:result :fail :other-bot other :reason :not-unique})
+                 (do
+                   (timbre/info "You're the only one submitting this bot...")
+                   {:result :pass})))))))
+
 (defn exec-player-bot-tests
   [player-bot]
   (let [player-bot (game/player-with-bot-instance player-bot)]
     (go
-      (let [bot-verification (async/<! (exec-bot-verification player-bot))
+      (let [unique-bot (async/<! (exec-unique-bot-verification player-bot))
+            bot-verification (async/<! (exec-bot-verification player-bot))
             new-game-verification (async/<! (exec-new-game-verification player-bot))]
-        [bot-verification new-game-verification]))))
+        [unique-bot bot-verification new-game-verification]))))
 
 (defn execute-tests
   [player]
@@ -130,10 +148,10 @@
       (GET "/" [] (resp/response {:registration (assoc registration :registration-id registration-id)}))
 
       (PUT "/" {:keys [body]}
-           (resp/response (test-and-maybe-save! (:registration body))))
+           (resp/response (when @accepting-registrations? (test-and-maybe-save! (:registration body)))))
 
       (DELETE "/" _
-        (resp/response (reset-registration! registration))))
+        (resp/response (when accepting-registrations? (reset-registration! registration)))))
     (resp/not-found {})))
 
 (defroutes registration-routes*

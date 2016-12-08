@@ -1,7 +1,6 @@
 # TODO
 
 ## Tournament
-
 - Make sure no one submits an example bot
 - Make sure no one submits the same bot
 

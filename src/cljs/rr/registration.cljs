@@ -1,7 +1,7 @@
 (ns rr.registration
   (:require [reagent.core :as reagent :refer [atom cursor]]
             [taoensso.timbre :refer [debug info warn error]]
-            [ajax.core :refer [GET PUT]]
+            [ajax.core :refer [GET PUT DELETE]]
             [rr.bs :as bs]
             [rr.utils :refer [ascii-title csrf-token player-short-id truncate-name players-names]])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
@@ -21,6 +21,13 @@
   (GET (str "/registrations/" registration-id)
        {:handler #(dispatch! [:registration registration-id (:registration %)])
         :error-handler #(dispatch! [:error-registration registration-id %])}))
+
+(defn delete-registration!
+  [registration-id]
+  (DELETE (str "/registrations/" registration-id)
+          {:headers {"x-csrf-token" (csrf-token)}
+           :handler       #(dispatch! [:registration registration-id (:registration %)])
+           :error-handler #(dispatch! [:error-registration registration-id %])}))
 
 (defmethod dispatch-event-type :registration
   [_ [_ _ registration]]
@@ -112,6 +119,11 @@
   (go (fetch-registration! (:registration-id registration-state)))
   (select-keys registration-state [:registration-id]))
 
+(defmethod dispatch-event-type :delete!
+  [registration-state _]
+  (go (delete-registration! (:registration-id registration-state)))
+  (select-keys registration-state [:registration-id]))
+
 (defmethod dispatch-event-type :test!
   [registration-state _]
   (PUT (str "/registrations/" (:registration-id registration-state))
@@ -170,7 +182,14 @@
                :on-click #(dispatch! [:reset!])} "Reset"]
    (when (#{:saved :failed} (:result @registration-state))
      [:a {:on-click #(dispatch! [:toggle-logs!])}
-      (if (:logs? @registration-state) "Hide Logs" "Show Logs")])])
+      (if (:logs? @registration-state) "Hide Logs" "Show Logs")])
+
+   (when (= :saved (:result @registration-state))
+     [bs/button {:bs-size  :large
+                 :bs-style :danger
+                 :class "pull-right"
+                 :disabled (:testing? @registration-state)
+                 :on-click #(dispatch! [:delete!])} "Delete and start over"])])
 
 (def reason-descriptions
   {:lambda/function-failed-invocation "The Lambda function failed, returning a HTTP status other than 200"
@@ -182,7 +201,9 @@
    :docker/start-container-failed "A container for the selected image could not be started."
 
    :exception "An exception was caught whilst executing the test."
-   :not-ready "An invalid response was received whilst attempting to start a new game"})
+   :not-ready "An invalid response was received whilst attempting to start a new game"
+
+   :not-unique "Someone else has already submitted a bot with these parameters. Try not to cheat, please."})
 
 (defn test-result-view
   [test]
