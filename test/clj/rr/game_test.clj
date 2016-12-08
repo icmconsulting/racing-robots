@@ -242,7 +242,7 @@
                                                                         {:type :move :value 0 :priority 290}]}))] ;;not realistic, but only way on this map
         (is (= [1 3] (player-position single-player-game 1)))))
 
-    (testing "Robots are not rotated by belts moving in a different direction that the robot is facing"
+    (testing "Robots are not rotated by the same belt moving in a different direction that the robot is facing"
       (let [single-player-game (-> base-game
                                    (assoc-in [:state :players 0 :robot :direction] :south)
                                    (assoc-in [:state :players 0 :robot :position] [0 1])
@@ -260,7 +260,6 @@
                                                                   {:type :move :value 0 :priority 290}]})))] ;;not realistic, but only way on this map
         (is (= [2 4] (player-position single-player-game 1)))
         (is (= :south (player-direction single-player-game 1)))))
-
 
     (testing "Robots are moved around corner on corner belts, and rotated if required"
       (let [single-player-games (-> base-game

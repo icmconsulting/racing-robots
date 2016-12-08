@@ -1,7 +1,6 @@
 # TODO
 
 ## Tournament
-- Add nrepl when running in tournament mode
 
 - Make sure no one submits an example bot
 - Make sure no one submits the same bot

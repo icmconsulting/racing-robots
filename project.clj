@@ -7,6 +7,7 @@
   :dependencies [[org.clojure/clojure "1.9.0-alpha12"]
                  [com.taoensso/timbre "4.7.4"]
                  [ring-server "0.4.0"]
+                 [org.clojure/tools.nrepl "0.2.12"]
                  [reagent "0.6.0" :exclusions [cljsjs/react cljsjs/react-dom]]
                  [reagent-forms "0.5.26"]
                  [reagent-utils "0.2.0"]
