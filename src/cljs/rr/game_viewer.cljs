@@ -17,6 +17,9 @@
             [taoensso.timbre :as timbre])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
+(def test-only-boards (into {} (remove (comp :tournament-only? val) boards/all-available-boards)))
+(def tournament-boards (into {} (remove (comp :test-only? val) boards/all-available-boards)))
+
 (def empty-game {:new-game {:players [{} {} {} {}] :state :not-started :board :random}})
 (defonce game-state (atom empty-game))
 
@@ -339,24 +342,25 @@
   (assoc (bots/player-bot player) :robot-image bot-image))
 
 (defn kw->board
-  [board]
-  (get boards/all-available-boards
+  [all-boards board]
+  (get all-boards
        (if (= :random board)
-         (rand-nth (keys boards/all-available-boards))
+         (rand-nth (keys all-boards))
          board)))
 
 (defmethod dispatch-event-type :start-game!
-  [game-state _]
+  [game-state [_ all-boards]]
   (let [players (map apply-player-bot (remove empty? (get-in game-state [:new-game :players])) (shuffle all-bot-images))
-        board (kw->board (get-in game-state [:new-game :board]))
+        all-boards (or all-boards (get-in game-state [:new-game :all-boards]))
+        board (kw->board all-boards (get-in game-state [:new-game :board]))
         game-ch (runner/start-new-game {:players players :board (:board board)})
         game-params (select-keys (:new-game game-state) [:players :board])]
 
     (go (dispatch! (vec (concat [:game-started!] (async/<! game-ch)))))
 
     {:state-stack []
-     :new-game game-params   ;; for trying again if something goes wrong
-     :rematch-game game-params
+     :new-game (assoc game-params :all-boards all-boards)   ;; for trying again if something goes wrong
+     :rematch-game (assoc game-params :all-boards all-boards)
      :autoplay? false
      :waiting-for-ready? true}))
 
@@ -485,12 +489,12 @@
       ^{:key player-num}
       [player-type-selection player-num])
 
-    [board-selection (into {} (remove (comp :tournament-only? val) boards/all-available-boards))]
+    [board-selection test-only-boards]
 
     [bs/button {:bs-size :large
                 :bs-style :primary
                 :disabled (not (new-game-ready-to-start? @game-state))
-                :on-click #(dispatch! [:start-game!])} "Get Racin'"]]])
+                :on-click #(dispatch! [:start-game! test-only-boards])} "Get Racin'"]]])
 
 (defmethod dispatch-event-type :registration-change
   [game-state [_ player-num registration-id]]
@@ -532,12 +536,12 @@
       ^{:key player-num}
       [registration-selection player-num])
 
-    [board-selection (into {} (remove (comp :test-only? val) boards/all-available-boards))]
+    [board-selection tournament-boards]
 
     [bs/button {:bs-size :large
                 :bs-style :primary
                 :disabled (not (tournament-game-ready-to-start? @game-state))
-                :on-click #(dispatch! [:start-game!])} "Get Racin'"]]])
+                :on-click #(dispatch! [:start-game! tournament-boards])} "Get Racin'"]]])
 
 (defmethod dispatch-event-type :all-registrations
   [game-state [_ registrations]]
@@ -625,7 +629,7 @@
 (defmethod dispatch-event-type :rematch!
   [game-state _]
   (dispatch-event-type (assoc game-state :new-game (:rematch-game game-state))
-                       [:start-game!]))
+                       [:start-game! ]))
 
 (defn game-over-root
   []
