@@ -2,7 +2,8 @@
   (:require [reagent.core :refer [atom dom-node cursor]]
             [rr.game :as game]
             [rr.konva :as k]
-            [rr.utils :refer [image-obj]]))
+            [rr.utils :refer [image-obj]]
+            [taoensso.timbre :as timbre]))
 
 (defonce board-size (atom {:width 1000 :height 450}))
 
@@ -162,20 +163,24 @@
 
 (def laser-width-ratio 0.1)
 
+(defn laser-squares-seq
+  [board start-position laser-direction]
+  (let [laser-squares (game/square-seq board start-position laser-direction)]
+    (reduce
+      (fn [squares [_ square]]
+        (if (and
+              (game/can-laser-pass-into-square? square laser-direction)
+              (game/can-laser-pass-out-of-square? (last squares) laser-direction))
+          (conj squares square)
+          (reduced squares)))
+      [(last (first laser-squares))] (rest laser-squares))))
+
 (defn laser-renderer
   [{:keys [laser]} {:keys [height width x y board position] :as props}]
   (when-let [[laser-wall num] laser]
     (fn []
       (let [laser-direction (get-in game/rotate-delta [:u-turn laser-wall])
-            laser-squares (game/square-seq board position laser-direction)
-            laser-squares (reduce
-                            (fn [squares [_ square]]
-                              (if (and
-                                    (game/can-laser-pass-into-square? square laser-direction)
-                                    (game/can-laser-pass-out-of-square? (last squares) laser-direction))
-                                (conj squares square)
-                                (reduced squares)))
-                            [(last (first laser-squares))] (rest laser-squares))
+            laser-squares (laser-squares-seq board position laser-direction)
             [rotation {dx :x dy :y}] (laser-shooter-adjustment laser-wall)]
         [k/group
          (for [laser-num (range num)]
@@ -328,28 +333,44 @@
    :south [180 {:x 0.7 :y 0.7}]
    :west [270 {:y 0.7 :x 0}]})
 
+(defn robot-laser-group
+  [board square-dim {:keys [position direction]} laser-colour render-props]
+  (let [laser-squares (laser-squares-seq board position direction)]
+    [k/group
+     (let [laser-points (laser-points (get-in game/rotate-delta [:u-turn direction]) 1 1 laser-squares render-props)]
+       [k/line {:stroke       laser-colour
+                :stroke-width (* square-dim 0.04)
+                :opacity      0.4
+                :points       laser-points}])]))
+
+(def laser-colours ["#39A939" "#D38647" "#D3D347" "#566EA4"])
+
 (defn robot-layer
-  [square-dim players-cur]
+  [board square-dim players-cur]
   [k/layer
    [k/group
-    (for [{:keys [id robot robot-image state] :as p} players-cur]
+    (for [{:keys [id robot robot-image state laser-colour] :as p}
+          (map #(assoc %1 :laser-colour %2) players-cur laser-colours)]
       (when-not (or (= state :dead) (nil? (:position robot)))
         (let [[x y] (:position robot)
-              [rot {dx :x dy :y}] (robot-adjustment (:direction robot))]
+              [rot {dx :x dy :y}] (robot-adjustment (:direction robot))
+              start-x (* x square-dim)
+              start-y (* y square-dim)]
           ^{:key id}
           [k/group
            [k/image {:height   (- square-dim (* 2 wall-square-ratio square-dim))
                      :width    (- square-dim (* 2 wall-square-ratio square-dim))
                      :image    robot-image
-                     :x        (+ (* x square-dim) (* wall-square-ratio square-dim) (* square-dim dx))
-                     :y        (+ (* y square-dim) (* wall-square-ratio square-dim) (* square-dim dy))
+                     :x        (+ start-x (* wall-square-ratio square-dim) (* square-dim dx))
+                     :y        (+ start-y (* wall-square-ratio square-dim) (* square-dim dy))
                      :rotation rot}]
+           [robot-laser-group board square-dim robot laser-colour {:x start-x :y start-y :height square-dim :width square-dim}]
            (when (:powered-down? robot)
              [k/image {:height   (* 0.5 square-dim)
                        :width    (* 0.5 square-dim)
                        :image    powered-down-image
-                       :x        (+ (* x square-dim) (* 0.5 square-dim))
-                       :y        (+ (* y square-dim) (* 0.5 square-dim))}])])))]])
+                       :x        (+ start-x (* 0.5 square-dim))
+                       :y        (+ start-y (* 0.5 square-dim))}])])))]])
 
 (defn board-view
   [board-attrs]
@@ -363,4 +384,4 @@
      (when (contains? @board-attrs :highlighted)
        [highlight-layer board rows row-height board-attrs])
      (when (contains? @board-attrs :players)
-       [robot-layer row-height (:players @board-attrs)])]))
+       [robot-layer board row-height (:players @board-attrs)])]))
