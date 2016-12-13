@@ -56,12 +56,22 @@
                                     :turn-number (game/turn-number turn)))]))
 
 (defn enter-player-registers
-  [turn {:keys [dealt id name]} {:keys [registers powering-down]}]
-  (if-let [extra-cards (seq (clojure.set/difference (set registers) (set dealt)))]
-    (do
-      (warn "Cheater! Player [" name "] tried to play register cards that weren't dealt to them!" extra-cards)
-      (game/player-invalid-response turn id))
-    (game/player-enters-registers turn id registers (true? powering-down))))
+  [turn {:keys [dealt id name] :as player} {:keys [registers powering-down]}]
+  (let [extra-cards (clojure.set/difference (set registers) (set dealt))
+        number-registers-expected (game/num-registers-for-this-turn player)]
+    (cond
+      ;; can't play cards you weren't dealt!
+      (seq extra-cards)
+      (do
+        (warn "Cheater! Player [" name "] tried to play register cards that weren't dealt to them!" extra-cards)
+        (game/player-invalid-response turn id))
+
+      (not= number-registers-expected (count registers))
+      (do
+        (warn "Cheater! Player [" name "] did not play the correct number of registers! Expected: " number-registers-expected ", Actual: " (count registers))
+        (game/player-invalid-response turn id))
+
+      :else (game/player-enters-registers turn id registers (true? powering-down)))))
 
 (defn apply-bot-responses
   [turn player-with-responses]

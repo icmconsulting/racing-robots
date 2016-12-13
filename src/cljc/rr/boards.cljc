@@ -75,10 +75,10 @@
 (def proving-grounds
   (game/->RRSeqBoard
     (concat
-      [(concat (repeat 3 blank) [(flag 1)] (repeat 4 blank))]
-      [(concat (repeat 3 blank) [(flag 2)] (repeat 4 blank))]
-      [(concat (repeat 3 blank) [(flag 3)] (repeat 4 blank))]
-      [(repeat 8 blank)]
+      [(concat (repeat 3 (belt :east)) [(flag 1) (exp-belt :south)] (repeat 3 (exp-belt :west)))]
+      [(concat (repeat 3 blank) [(flag 2) (exp-belt :south)] (repeat 3 blank))]
+      [(concat (repeat 3 blank) [(flag 3) (exp-belt :south)] (repeat 3 blank))]
+      [(concat (repeat 4 blank) (repeat 4 (exp-belt :east)))]
       [[(rep) blank (walls :south) blank (walls :south) blank (walls :south) blank]]
       [(repeat 8 blank)]
       [(repeat 8 blank)]

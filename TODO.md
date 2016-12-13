@@ -9,3 +9,6 @@
 - Game instructions + differences from Robot Rally
 - Sample implementations
 - Test harness build + instructions
+
+# Fixes
+- Spring player not returning correct number of registers - should be gaining damage!!

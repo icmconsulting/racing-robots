@@ -896,12 +896,3 @@
                                              (partial player-with-robot board))
                                        (shuffle players)))
        :turns        {}})))
-
-;; TODO:
-
-;; - log hitting wall?
-
-;; - start test harness by 6th Oct - includes the game engine/driver/controller
-;; - timed out player surplus cards passed to next player
-;; - player becomes inactive (x number of errors in game) -> player is removed from game
-;; - player cheats with cards (cards not dealt) lose life and move back to archive-marker

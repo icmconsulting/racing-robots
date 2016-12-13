@@ -1,0 +1,414 @@
+swagger: '2.0'
+info:
+  title: Racing Robots Bot API
+  description: The API that your "Racing Robot" Bot must implement
+  version: "1.0.0"
+
+basePath: /game
+
+# array of all schemes that your API supports
+schemes:
+  - http
+
+produces:
+  - application/json
+
+
+paths:
+  /{gameId}:
+    post:
+      summary: Start a new game
+      consumes:
+        - application/json
+      description: |
+        Called by the tournament server when starting a new game where your
+        bot will be a participant. A valid response is required here to indicate that your
+        bot is ready to participate in the game.
+        The response from your bot will also include your player profile, including your team
+        name, robot name, and avatar image.
+      parameters:
+        - name: gameId
+          in: path
+          description: The generated game id. Useful if recording game data - can ignore otherwise.
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/Game'
+      responses:
+        200:
+          description: New game response
+          schema:
+            $ref: '#/definitions/NewGameResponse'
+
+    delete:
+      summary: Game is over
+      consumes:
+        - application/json
+      description: Called when the game is over. Useful if your bot is tracking game data, and results.
+      parameters:
+        - name: gameId
+          in: path
+          description: The generated game id. Useful if recording game data - can ignore otherwise.
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/GameOver'
+      responses:
+        200:
+          description: Game over response
+          schema:
+            $ref: '#/definitions/GameOverResponse'
+
+  /{gameId}/{turnNumber}:
+    post:
+      summary: Execute bot turn
+      consumes:
+        - application/json
+      description: |
+        Deals the cards for the new turn to your bot. Response from bot must include the registers
+        being played for this current turn, and whether or not your bot will be powering down in the
+        subsequent turn.
+        Covers Phases 1 - 3 of each turn, as per the Robo Rally Rulebook.
+      parameters:
+        - name: gameId
+          in: path
+          description: The generated game id. Useful if recording game data - can ignore otherwise.
+          required: true
+          type: string
+        - name: turnNumber
+          in: path
+          description: The turn number for the current turn within the current game
+          required: true
+          type: integer
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/Turn'
+      responses:
+        200:
+          description: Turn response
+          schema:
+            $ref: '#/definitions/TurnResponse'
+
+    put:
+      summary: Complete bot turn - clean-up phase
+      consumes:
+        - application/json
+      description: |
+        Clean up phase for turn (phase 5). Submits game state after all registers have been executed,
+        prompts for specific action to be taken. The particular actions available are provided in the
+        body parameter, and are based on the current state of the player bot. The response will control
+        whether your bot will continue to power down in the next turn.
+      parameters:
+        - name: gameId
+          in: path
+          description: The generated game id. Useful if recording game data - can ignore otherwise.
+          required: true
+          type: string
+        - name: turnNumber
+          in: path
+          description: The turn number for the current turn within the current game
+          required: true
+          type: integer
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CleanUpTurn'
+      responses:
+        200:
+          description: Clean up turn response
+          schema:
+            $ref: '#/definitions/CleanUpTurnResponse'
+
+
+
+definitions:
+  Game:
+    type: object
+    properties:
+      id:
+        type: string
+        description: current game identifier. Useful to track game data, can ignore otherwise.
+      playerId:
+        type: string
+        description: your bot''s player ID in the context of the current game. This ID is only relevant for the current game, and won''t be used outside of this game.
+      board:
+        $ref: '#/definitions/Board'
+      playerRobot:
+        $ref: '#/definitions/PlayerRobot'
+      otherPlayers:
+        type: array
+        items:
+          $ref: '#/definitions/Player'
+
+  Board:
+    type: object
+    properties:
+      name:
+        type: string
+        description: The name of the board for the game. Correlates to the board name in the boards browser in the test harness.
+      squares:
+        type: array
+        description: Two dimensional array of squares in the board. Each row is represented in the top-most array.
+        items:
+          type: array
+          description: each square in the row.
+          items:
+            $ref: '#/definitions/BoardSquare'
+
+  Direction:
+    type: string
+    enum: ['north', 'east', 'south', 'west']
+
+  BoardSquare:
+    type: object
+    properties:
+      walls:
+        type: array
+        description: Walls on the square. Each item in array is a direction where a wall is located on the square
+        items:
+          $ref: '#/definitions/Direction'
+      repair:
+        type: boolean
+        description: Is a repair station located on this square?
+      flag:
+        type: integer
+        description: The flag number, if any, on this square
+      belt:
+        type: object
+        description: Details of the conveyer belt on this square
+        properties:
+          direction:
+            $ref: '#/definitions/Direction'
+          express:
+            type: boolean
+            description: Is the belt an express belt?
+      rotator:
+        type: string
+        description: Direction of rotator on this square (if any)
+        enum: ['left', 'right', 'u-turn']
+      pit:
+        type: boolean
+        description: Is there a pit on this square?
+      laser:
+        type: object
+        description: Details of any laser blasters on this square
+        properties:
+          wall:
+            $ref: '#/definitions/Direction'
+          number:
+            type: integer
+            minimum: 1
+            maximum: 3
+      dockingBay:
+        type: integer
+        description: The docking bay number on the square, if applicable (i.e. the square where player with this number will start the game
+        minimum: 1
+        maximum: 4
+
+  PlayerRobotState:
+    type: string
+    description: Possible robot states
+    enum: ["ready", "destroyed"]
+
+  RegisterCard:
+    type: object
+    properties:
+      type:
+        type: string
+        description: the card action
+        enum: ["move", "rotate"]
+      value:
+        type: ["string", "integer"]
+        description: The value of the card. If type = move, then value is the number of squares to be moved. If type = rotate, value is the direction of the rotation.
+      priority:
+        type: integer
+        description: The priority value of the card indicates the order in which the card will be actioned with respect to cards played by other robots within the same register.
+    required:
+      - type
+      - value
+      - priority
+
+  Position:
+    type: array
+    description: X,Y coordinates - X is the column, Y is the row number. The most north-most row is 0, the west most column is 0.
+    items:
+      type: integer
+    maxItems: 2
+    minItems: 2
+
+  PlayerRobot:
+    type: object
+    properties:
+      direction:
+        $ref: '#/definitions/Direction'
+      position:
+        $ref: '#/definitions/Position'
+      archiveMarker:
+        $ref: '#/definitions/Position'
+      dockingBay:
+        type: integer
+        description: The docking bay number that the robot started in this game
+      name:
+        type: string
+        description: Name of the robot
+      state:
+        $ref: '#/definitions/PlayerRobotState'
+      lives:
+        type: integer
+        minimum: 0
+        maximum: 4
+        description: number of lives remaining for the player robot
+      damage:
+        type: integer
+        description: total damage taken by the robot for this life. When damage reaches 10, the robot is destroyed
+      flags:
+        type: array
+        items:
+          type: integer
+        description: The flags touched by this robot during this game
+      lockedRegisters:
+        type: array
+        items:
+          $ref: '#/definitions/RegisterCard'
+      events:
+        type: array
+        description: events that have affected this robot this game
+        items:
+          type: object
+
+  PlayerState:
+    type: string
+    description: Player team state possible values. Differs from PlayerRobotState as this represents the Player team's victory status - i.e. playing, dead (game over) or finished (all flags touched)
+    enum: ["playing", "dead", "finished"]
+
+  Player:
+    type: object
+    properties:
+      robot:
+        $ref: '#/definitions/PlayerRobot'
+      name:
+        type: string
+        description: Name of the other player's team
+      id:
+        type: string
+        description: the identifier of the player in context of this current game.
+      state:
+        $ref: '#/definitions/PlayerState'
+      lastTurn:
+        type: array
+        description: What register cards were played by this robot this turn? Will only be present during the CleanUpPhase
+        items:
+          $ref: '#/definitions/RegisterCard'
+
+
+  NewGameResponse:
+    type: object
+    properties:
+      response:
+        type: string
+        enum: ["ready"]
+        description: Indicate that your robot is ready. This is really the easiest it gets.
+      profile:
+        type: object
+        properties:
+          name:
+            type: string
+            description: The name of your team
+          robotName:
+            type: string
+            description: The name of your AI bot
+          avatar:
+            type: string
+            description: The image for your avatar. Matches what is expected in the src attribute of an image tag - but should be a absolute URL to an image, or a data url.
+        required:
+          - name
+          - robotName
+          - avatar
+    required:
+      - response
+      - profile
+
+  Turn:
+    description: Data for the current turn
+    allOf:
+      - $ref: '#/definitions/Game'
+      - type: object
+        properties:
+          cards:
+            type: array
+            description: The cards dealt to your robot this turn
+            items:
+              $ref: '#/definitions/RegisterCard'
+          numRegisters:
+            type: integer
+            description: The number of registers that are required to be played for your robot this turn. I.e. this is the number of cards you need to return in the registers property in the response.
+
+  TurnResponse:
+    type: object
+    properties:
+      registers:
+        type: array
+        description: The registers to be executed this turn by your robot (in order).
+        items:
+          $ref: '#/definitions/RegisterCard'
+      poweringDown:
+        type: boolean
+        description: Is your robot powering down next turn?
+    required:
+      - registers
+      - poweringDown
+
+  CleanUpTurn:
+    description: Data for the clean up phase for the current turn
+    allOf:
+      - $ref: '#/definitions/Game'
+      - type: object
+        properties:
+          availableResponses:
+            type: array
+            description: Your response can only be one of these values.
+            items:
+              type: string
+
+
+  CleanUpTurnResponse:
+    type: object
+    properties:
+      response:
+        type: string
+        enum: ["power-down","power-down-override", "no-action"]
+        description: Will your robot continue to power down next turn? Or will it override the power down instruction? Or will it take no action. The valid actions that can be taken are given by the availableResponses property in the CleanUpTurn object.
+    required:
+      - response
+
+  GameOver:
+    type: object
+    properties:
+      winners:
+        type: array
+        description: Who won?
+        items:
+          $ref: '#/definitions/Player'
+      allPlayers:
+        type: array
+        description: All player results
+        items:
+          $ref: '#/definitions/Player'
+
+  GameOverResponse:
+    type: object
+    properties:
+      response:
+        type: string
+        description: What say you?
+    required:
+      - response

@@ -13,14 +13,19 @@
                  (select-keys [:robot :name :id :state])
                  (update :robot dissoc :events))))))
 
+(defn board-square
+  [{:keys [laser belt] :as square}]
+  (assoc square :laser (when laser {:wall (first laser) :number (second laser)})
+                :belt (when belt {:direction (first belt) :express (true? (second belt))})))
+
 (defn new-game-data-for-bot
   [game player]
   (let [board (game/board game)]
-    {:id    (game/id game)
-     :player-id (:id player)
-     :board {:name    (:name board)                         ;; bit of a hack - this assumes that :name is within the map of the board that is sent
-             :squares (game/rows board)}
-     :player-robot (:robot player)
+    {:id            (game/id game)
+     :player-id     (:id player)
+     :board         {:name    (:name board)                         ;; bit of a hack - this assumes that :name is within the map of the board that is sent
+                     :squares (map #(map board-square %) (game/rows board))}
+     :player-robot  (:robot player)
      :other-players (into [] (other-players player) (game/players game))}))
 
 (defn turn-game-data-for-bot
