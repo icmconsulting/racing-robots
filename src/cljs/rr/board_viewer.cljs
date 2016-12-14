@@ -355,9 +355,23 @@
         (let [[x y] (:position robot)
               [rot {dx :x dy :y}] (robot-adjustment (:direction robot))
               start-x (* x square-dim)
-              start-y (* y square-dim)]
+              start-y (* y square-dim)
+              highlighter-radius (/ (- square-dim (* wall-square-ratio square-dim)) 2)]
           ^{:key id}
           [k/group
+           [k/circle {:radius highlighter-radius
+                      ;:fill "#dfdfdf"
+                      :opacity 0.3
+
+                      :fill-radial-gradient-start-point 0
+                      :fill-radial-gradient-start-radius 0
+                      :fill-radial-gradient-end-point 0
+                      :fill-radial-gradient-end-radius (* highlighter-radius 0.75)
+                      :fill-radial-gradient-color-stops [0 "transparent" 0.5 "transparent" 0.8 "white"]
+
+                      :x (+ start-x (/ square-dim 2))
+                      :y (+ start-y (/ square-dim 2))}]
+
            [k/image {:height   (- square-dim (* 2 wall-square-ratio square-dim))
                      :width    (- square-dim (* 2 wall-square-ratio square-dim))
                      :image    robot-image
