@@ -28,7 +28,7 @@
                  [base64-clj "0.1.1"]
                  [alandipert/enduro "1.2.0"]
                  [yogthos/config "0.8"]
-                 [com.rpl/specter "0.13.1-SNAPSHOT"]
+                 [com.rpl/specter "0.13.1"]
                  [org.clojure/clojurescript "1.9.293" :scope "provided"]
                  [secretary "1.2.3"]
                  [venantius/accountant "0.1.7"
