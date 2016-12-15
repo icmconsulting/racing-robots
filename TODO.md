@@ -1,14 +1,16 @@
 # TODO
 
-## Tournament
-- Make sure no one submits an example bot
-
-- Start new tournament - randomly generate draw from registrations
-    
 # Info
-- Game instructions + differences from Robot Rally
 - Sample implementations
 - Test harness build + instructions
 
-# Fixes
-- Spring player not returning correct number of registers - should be gaining damage!!
+- Provisions for day
+  - Beer, drinks, snacks
+- Test harness build  
+- Tournament server
+  -w/ Domain name
+  - Register teams w/ url
+- Bitbucket repo for each team
+- RR Bot Spec - unlock on morning of the 19th
+
+- Prizes envelopes

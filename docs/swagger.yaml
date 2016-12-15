@@ -17,7 +17,7 @@ produces:
 paths:
   /{gameId}:
     post:
-      summary: Start a new game
+      summary: Start a new game - handle New Game message
       consumes:
         - application/json
       description: |
@@ -44,7 +44,7 @@ paths:
             $ref: '#/definitions/NewGameResponse'
 
     delete:
-      summary: Game is over
+      summary: Game is over - handle Game Over message
       consumes:
         - application/json
       description: Called when the game is over. Useful if your bot is tracking game data, and results.
@@ -67,7 +67,7 @@ paths:
 
   /{gameId}/{turnNumber}:
     post:
-      summary: Execute bot turn
+      summary: Execute bot turn - handle Next Turn message
       consumes:
         - application/json
       description: |
@@ -98,7 +98,7 @@ paths:
             $ref: '#/definitions/TurnResponse'
 
     put:
-      summary: Complete bot turn - clean-up phase
+      summary: Complete bot turn - handle Clean Up message
       consumes:
         - application/json
       description: |

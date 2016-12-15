@@ -1,5 +1,5 @@
-(defproject rr "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
+(defproject rr "1.0.0-SNAPSHOT"
+  :description "Racin' robots"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -166,8 +166,7 @@
 
                    :source-paths ["env/dev/clj"]
                    :plugins [[lein-figwheel "0.5.8"]
-                             [lein-doo "0.1.7"]
-                             ]
+                             [lein-doo "0.1.7"]]
 
                    :injections [(require 'pjstadig.humane-test-output)
                                 (pjstadig.humane-test-output/activate!)]
@@ -180,4 +179,14 @@
                        :prep-tasks ["compile" ["cljsbuild" "once" "min"]]
                        :env {:production true}
                        :aot :all
-                       :omit-source true}})
+                       :omit-source true}}
+
+  :release-tasks [["vcs" "assert-committed"]
+                  ["change" "version"
+                   "leiningen.release/bump-version" "release"]
+                  ["vcs" "commit"]
+                  ["vcs" "tag" "--no-sign"]
+                  ["uberjar"]
+                  ["change" "version"
+                   "leiningen.release/bump-version" "patch"]
+                  ["vcs" "commit"]])

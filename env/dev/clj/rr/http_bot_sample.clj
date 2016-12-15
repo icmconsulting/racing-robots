@@ -36,8 +36,8 @@
              (println (:cards body))
              (println (:numRegisters body))
              (let [cards (:cards body)]
-               (resp/response {:registers     (->> cards shuffle (take (:numRegisters body)))
-                               :poweringDown false})))
+               (resp/response {:registers    (->> cards shuffle (take (:numRegisters body)))
+                               :poweringDown (< 5 (get-in body [:playerRobot :damage] 0))})))
 
            (PUT "/game/:game-id/:turn-number" {:keys [params body]}
                 (println "COMPLETE TURN!")
