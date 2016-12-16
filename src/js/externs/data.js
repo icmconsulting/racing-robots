@@ -1,4 +1,4 @@
 var dataset = {
-  crsf: {},
+  csrf: {},
   mode: {}
 };
