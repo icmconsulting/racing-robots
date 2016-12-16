@@ -307,11 +307,9 @@
   [_ [_ error]]
   {:error error})
 
-(def unknown-registration-avatar "/public/images/unknown-registration.jpg")
+(def unknown-registration-avatar "/images/unknown-registration.jpg")
 
 (defmulti registrations-thumb (comp :connection-type val))
-
-
 
 (defmethod registrations-thumb :docker
   [[id reg]]
