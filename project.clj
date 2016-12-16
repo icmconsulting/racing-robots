@@ -76,7 +76,9 @@
                             :output-dir    "target/uberjar"
                             :optimizations :advanced
                             :pretty-print  false
-                            :externs ["src/js/externs/react.js" "src/js/externs/react-konva.js"]
+                            :externs ["src/js/externs/react.js"
+                                      "src/js/externs/react-konva.js"
+                                      "src/js/externs/data.js"]
                             :foreign-libs  [{:file     "src/js/konva/react-konva.bundle.js"
                                              :provides ["cljsjs.react.dom"
                                                         "cljsjs.react.dom"

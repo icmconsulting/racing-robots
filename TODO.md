@@ -1,8 +1,7 @@
 # TODO
 
 # Info
-- Sample implementations
-- Test harness build + instructions
+- Test harness build
 
 - Provisions for day
   - Beer, drinks, snacks
