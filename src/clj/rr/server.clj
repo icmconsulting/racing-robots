@@ -9,7 +9,8 @@
 (defn start-web
   []
   (let [port (Integer/parseInt (or (env :port) "3000"))]
-    (run-jetty app {:port port :join? false})))
+    (run-jetty app {:port port :join? false})
+    (info "Server started on port " port)))
 
 (defn maybe-start-nrepl
   []
