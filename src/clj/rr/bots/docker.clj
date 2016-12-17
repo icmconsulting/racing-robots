@@ -132,6 +132,7 @@
             (if (= :ready (wait-until-port-ready (:host container-info) (:port container-info)))
               (do
                 (timbre/info "Container [" container-id "] for image [" image "] successfully started and is ready for connections.")
+                (Thread/sleep 5000)                         ;; fudge....
                 container-info)
               (do
                 (timbre/error "Could not connect to docker host port.")
