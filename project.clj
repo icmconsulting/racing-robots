@@ -66,7 +66,7 @@
 
   :minify-assets
   {:assets
-   {"resources/public/css/site.min.css" "resources/public/css/site.css"}}
+   {"resources/public/css/rr.min.css" "resources/public/css/rr.css"}}
 
   :cljsbuild
   {:builds {:min
