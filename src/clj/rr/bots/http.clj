@@ -27,7 +27,8 @@
         validation-result (when body (response-validator body))]
     (cond
       error (do
-              (timbre/error error "Failed to connect to server to url " url)
+              (timbre/error error "Failed to connect to server at url " url)
+              (println resp)
               :rr.connectors/error-connecting)
       (and (= 200 status) (nil? validation-result))
       body

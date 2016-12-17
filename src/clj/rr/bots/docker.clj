@@ -86,7 +86,7 @@
       (.connect url-connection) ;; test the http server
       :ready
       (catch IOException _
-        (println "Failed...")
+        (timbre/debug "Failed to connect...")
         :failed)
       (finally
         (try
