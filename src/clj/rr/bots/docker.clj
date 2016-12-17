@@ -12,7 +12,7 @@
   (:import [com.spotify.docker.client DefaultDockerClient ProgressHandler
                                       DockerClient$ListContainersParam DockerClient$ListContainersFilterParam]
            [com.spotify.docker.client.messages AuthConfig ContainerConfig HostConfig PortBinding]
-           [java.net Socket InetSocketAddress]
+           [java.net Socket InetSocketAddress URL]
            [java.io IOException]))
 
 (def docker-client (-> (DefaultDockerClient/fromEnv)
@@ -79,14 +79,19 @@
 (defn wait-until-port-ready
   [host port]
   (let [socket (doto (Socket.) (.setReuseAddress true))
-        socket-addr (InetSocketAddress. host (Integer/parseInt port))]
+        socket-addr (InetSocketAddress. host (Integer/parseInt port))
+        url-connection (.openConnection (URL. (str "http://" host ":" port "/")))]
     (try
       (.connect socket socket-addr 500)
+      (.connect url-connection) ;; test the http server
       :ready
-      (catch IOException _ :failed)
+      (catch IOException _
+        (println "Failed...")
+        :failed)
       (finally
         (try
           (when socket (.close socket))
+          (when url-connection (.disconnect url-connection))
           (catch Throwable _))))))
 
 (defn start-container
@@ -126,7 +131,6 @@
 
             (if (= :ready (wait-until-port-ready (:host container-info) (:port container-info)))
               (do
-                (Thread/sleep 2000)                          ;;fudge it - wait for another 2s for their server to finish starting
                 (timbre/info "Container [" container-id "] for image [" image "] successfully started and is ready for connections.")
                 container-info)
               (do
