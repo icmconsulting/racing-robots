@@ -187,9 +187,9 @@
   :release-tasks [["vcs" "assert-committed"]
                   ["change" "version"
                    "leiningen.release/bump-version" "release"]
+                  ["uberjar"]
                   ["vcs" "commit"]
                   ["vcs" "tag" "--no-sign"]
-                  ["uberjar"]
                   ["change" "version"
                    "leiningen.release/bump-version" "patch"]
                   ["vcs" "commit"]])
