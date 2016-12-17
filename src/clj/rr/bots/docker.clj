@@ -12,8 +12,8 @@
   (:import [com.spotify.docker.client DefaultDockerClient ProgressHandler
                                       DockerClient$ListContainersParam DockerClient$ListContainersFilterParam]
            [com.spotify.docker.client.messages AuthConfig ContainerConfig HostConfig PortBinding]
-           [java.net Socket InetSocketAddress URL]
-           [java.io IOException]))
+           [java.net Socket InetSocketAddress URL SocketTimeoutException]
+           [java.io IOException FileNotFoundException]))
 
 (def docker-client (-> (DefaultDockerClient/fromEnv)
                        (.build)))
@@ -83,10 +83,17 @@
         url-connection (.openConnection (URL. (str "http://" host ":" port "/")))]
     (try
       (.connect socket socket-addr 500)
-      (.connect url-connection) ;; test the http server
+      (timbre/debug "Socket connect successful, testing HTTP")
+      (.connect url-connection)
+      (with-open [is (.getInputStream url-connection)]
+        (.read is))
       :ready
-      (catch IOException _
-        (timbre/debug "Failed to connect...")
+      (catch FileNotFoundException _
+             (timbre/debug "File not found exception while attempting http conn to server - safe to ignore...")
+             :ready)
+      (catch IOException e
+        :failed)
+      (catch SocketTimeoutException _
         :failed)
       (finally
         (try
@@ -132,7 +139,6 @@
             (if (= :ready (wait-until-port-ready (:host container-info) (:port container-info)))
               (do
                 (timbre/info "Container [" container-id "] for image [" image "] successfully started and is ready for connections.")
-                (Thread/sleep 5000)                         ;; fudge....
                 container-info)
               (do
                 (timbre/error "Could not connect to docker host port.")
