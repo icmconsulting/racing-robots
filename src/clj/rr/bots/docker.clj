@@ -126,6 +126,7 @@
 
             (if (= :ready (wait-until-port-ready (:host container-info) (:port container-info)))
               (do
+                (Thread/sleep 2000)                          ;;fudge it - wait for another 2s for their server to finish starting
                 (timbre/info "Container [" container-id "] for image [" image "] successfully started and is ready for connections.")
                 container-info)
               (do

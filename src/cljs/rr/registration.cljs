@@ -48,7 +48,7 @@
    [bs/control-label "docker image"]
    [bs/input-group
     [bs/form-control {:type        :text
-                      :placeholder "image e.g. icm-consulting/my-hackathon-docker-image"
+                      :placeholder "image e.g. rr/my-hackathon-docker-image"
                       :value       (:image-id @registration-state "")
                       :on-change   #(dispatch! [:submission-image-id (-> % .-target .-value)])}]
     [bs/input-group-addon
