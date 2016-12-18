@@ -33,7 +33,11 @@
                             {:player1 "Yair" :player2 "Bernhard"}
                             {:player1 "Abhijeet" :player2 "Nelson"}
                             {:player1 "Robert" :player2 "John"}
-                            {:player1 "Conrad" :player2 "?"}]))
+                            {:player1 "Conrad" :player2 "Vincent"}])
+
+  (map (fn [[k {:keys [player1 player2]}]]
+         (str player1 "," player2 " -> http://rr.icm-consulting.com.au/registration/" k))
+       @registrations))
 
 ;; TODO: generate player registrations from team entries
 ;; - Generates URLs - will slack manually to teams
