@@ -9,7 +9,7 @@
 
 (defn send-and-collect-responses
   [players send-fn reduce-responses-fn]
-  (let [players (mapv #(assoc % :resp-chan (async/merge [(async/timeout 10000)])) players)]
+  (let [players (mapv #(assoc % :resp-chan (async/merge [(async/timeout 12000)])) players)]
     (doseq [{:keys [resp-chan] :as player} players]
       (async/pipe (send-fn player) resp-chan))
 
