@@ -1,6 +1,5 @@
 (ns rr.logger
-  (:require [reagent.core :as reagent]
-            [goog.string :refer [format]]
+  (:require [goog.string :refer [format]]
             [taoensso.timbre :as timbre :refer [info]]
             [rr.game :as game]
             [rr.utils :refer [player-short-id ascii-title]]))
@@ -92,4 +91,4 @@
 
 (defn print-log-header
   []
-  (println ascii-title))
+  (timbre/info ascii-title))
