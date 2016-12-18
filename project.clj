@@ -1,4 +1,4 @@
-(defproject rr "1.0.12-SNAPSHOT"
+(defproject rr "1.0.12"
   :description "Racin' robots"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"

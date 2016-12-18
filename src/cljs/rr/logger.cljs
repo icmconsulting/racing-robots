@@ -54,7 +54,7 @@
    :registers/locked-register-change (fmt-ev "Locked registers changed")
 
    :power-down/overridden (fmt-ev "Previous power-down command overridden")
-   :power-down/start (fmt-ev "Power-down commencing")})
+   :power-down/start (fmt-ev "Tempting fate by commencing power down")})
 
 (defn log-robot-event
   [event]
