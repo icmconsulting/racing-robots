@@ -10,6 +10,7 @@
             [config.core :refer [env]]
             [rr.bots :as bots]
             [rr.game :as game]
+            [rr.boards :as boards]
             [rr.bots.http]
             [rr.bots.lambda]
             [rr.bots.docker]))
@@ -77,7 +78,7 @@
 
 (def transit-handler
   {"game"  (transit/read-handler game/map->RRGameState)
-   "board" (transit/read-handler game/map->RRSeqBoard)
+   "board" (transit/read-handler (fn [{:keys [name]}] (get-in boards/all-available-boards [name :board])))
    "turn"  (transit/read-handler game/map->RRGameTurnState)})
 
 (def bot-routes

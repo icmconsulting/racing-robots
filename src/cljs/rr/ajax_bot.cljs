@@ -14,12 +14,12 @@
 (deftype BoardHandler []
   Object
   (tag [_ _] "board")
-  (rep [_ v] {:name (boards/board-from-board v) :board-squares (:board-squares v)}))
+  (rep [_ v] {:name (boards/board-from-board v)}))
 
 (defn fix-player-for-send
   [p]
   (-> p
-      (dissoc :bot-instance :bot-instance-fn :robot-image :bonus-modifier)
+      (dissoc :bot-instance :bot-instance-fn :robot-image :bonus-modifier :avatar)
       (update :robot dissoc :events)))
 
 (deftype GameHandler []
