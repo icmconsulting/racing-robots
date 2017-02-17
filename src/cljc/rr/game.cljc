@@ -269,7 +269,6 @@
                state)
     state))
 
-(squares-matching rr.boards/chop-shop-challenge :pit)
 (defn into-pits
   [{:keys [board] :as state}]
   (let [pits (squares-matching board :pit)]

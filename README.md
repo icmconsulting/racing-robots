@@ -15,7 +15,22 @@ A competitor in the programming challenge, you will take control of one of the r
 ## Running your own Hackathon/Programming Challenge using this repo
 There are a few steps you will need to follow if you want to host your own event using this repo
 
+### Building the Test Harness
 
+Prerequisite: You will need the [Leiningen](http://leiningen.org/) build tool.
+
+Then, to build the jar file:
+
+`$ lein do clean, test, uberjar`
+
+The same jar file is used for both the test harness and the tournament server - the web pages that are accessible are driven by the env:
+
+`$ java -jar rr-test-harness-1.0.12.jar` << Starts in test harness mode
+`$ MODE=tournament java -jar rr-test-harness-1.0.12.jar` << Starts in tournament mode
+
+### Running on AWS
+
+TODO
 
 ## Competitor's Instructions
 ### Overview
@@ -25,6 +40,7 @@ There are a few steps you will need to follow if you want to host your own event
 -----Read the Robo Rally instructions now before continuing-----
 
  Racing Robots has a few notable differences to Robo Rally, outlined in the next section.
+ 
 ### Differences between Racing Robots and Robo Rally
 * Racing Robots does not have the concept of "Option Cards" at all, so any mention of these in the rulebook can be ignored.
 * Racing Robots does not have any "Pusher" squares on any boards that you will play on, so these can be ignored.
